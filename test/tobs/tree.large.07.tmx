@@ -1,0 +1,21 @@
+<map orientation="orthogonal" width="2" height="4" tilewidth="32" tileheight="32"><properties></properties><tileset firstgid="1" name="default" tilewidth="0" tileheight="0"><properties></properties><tile id="1"><image source="tree.large.07.0.0.30.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile><tile id="2"><image source="tree.large.07.1.0.30.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="forest" type="string"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property></properties></tile><tile id="3"><image source="tree.large.07.0.1.20.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile><tile id="4"><image source="tree.large.07.1.1.20.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile><tile id="5"><image source="tree.large.07.0.2.10.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile><tile id="6"><image source="tree.large.07.1.2.10.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile><tile id="7"><image source="tree.large.07.0.3.0.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile><tile id="8"><image source="tree.large.07.1.3.0.png" width="32" height="32"></image><properties><property name="wall" value="true" type="bool"></property><property name="object" value="tree" type="string"></property><property name="season" value="winter" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile></tileset><layer id="1" width="2" height="4" name="0"><properties></properties><data encoding="csv" compression="">
+0,0,
+0,0,
+0,0,
+8,9
+</data></layer><layer id="2" width="2" height="4" name="10"><properties></properties><data encoding="csv" compression="">
+0,0,
+0,0,
+6,7,
+0,0
+</data></layer><layer id="3" width="2" height="4" name="20"><properties></properties><data encoding="csv" compression="">
+0,0,
+4,5,
+0,0,
+0,0
+</data></layer><layer id="4" width="2" height="4" name="30"><properties></properties><data encoding="csv" compression="">
+2,3,
+0,0,
+0,0,
+0,0
+</data></layer></map>

@@ -1,0 +1,3 @@
+<map orientation="orthogonal" width="1" height="1" tilewidth="32" tileheight="32"><properties></properties><tileset firstgid="1" name="default" tilewidth="0" tileheight="0"><properties></properties><tile id="1"><image source="mushroom.02.0.0.0.png" width="32" height="32"></image><properties><property name="wall" value="false" type="bool"></property><property name="object" value="mushroom" type="string"></property><property name="biome" value="forest" type="string"></property></properties></tile></tileset><layer id="1" width="1" height="1" name="0"><properties></properties><data encoding="csv" compression="">
+2
+</data></layer></map>
