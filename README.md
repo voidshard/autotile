@@ -48,16 +48,17 @@ Armed with this & some [config](https://github.com/voidshard/autotile/blob/main/
 To place tile objects (again, see 
 
 ```golang
-	ldr := autotile.NewFileLoader("")
-	bin := autotile.NewObjectBin(ldr)
+  ldr := autotile.NewFileLoader("")
+  bin := autotile.NewObjectBin(ldr)
   
-	bin.Load(
+  bin.Load(
     "trees",  // load a new group called "trees"
     0.4,      // we should place an item from the group "trees" 40% of the time
     []string{"tree.01.tmx", "shrub.01.tmx"}, // here are the trees that the Loader (above) knows how to load
     nil,
     []string{autotile.Dirt, autotile.Grass}, // items from group "trees" can be placed only on Dirt or Grass tiles
   )
+  
   bin.Load(
      "",      // empty string represents the nil group; ie the chance we place nothing at all
      0.6,     // %60 chance we don't place any object on a given tile
