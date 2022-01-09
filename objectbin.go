@@ -94,9 +94,19 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 		}
 		// else: implies n <= sofar
 
+		all, _ := o.tagsAll[group]
+		any, _ := o.tagsAny[group]
+
 		names, ok := o.groups[group]
 		if !ok {
 			continue
+		}
+		if len(names) == 0 {
+			if matchTags(mo, all, any, x, y) {
+				return nil
+			} else {
+				continue
+			}
 		}
 
 		pickable := []*tile.Map{}
@@ -119,8 +129,6 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 			suitable := true
 			for ty := y + obj.Height - objheight; ty < y+obj.Height; ty++ {
 				for tx := x; tx < x+obj.Width; tx++ {
-					all, _ := o.tagsAll[group]
-					any, _ := o.tagsAny[group]
 					suitable = matchTags(mo, all, any, tx, ty)
 				}
 				if !suitable {
@@ -196,12 +204,18 @@ type obj struct {
 //  - in the same way a nil `all` tags or `any` tags implies that we're happy with anything
 //  - objects will never be placed if they would overwrite existing tiles (regardless of tags)
 //  - chances are not normalised, you'll probably want to manage this yourself
+//  - if we're specifically given a group with no objects we will not place objects on
+//    tiles with matching tags (if rolled)
 func (o *ObjectBin) Load(group string, chance float64, objects, all, any []string) error {
 	if group == "" {
 		o.nilChance = chance
 		return nil
 	}
 	if len(objects) == 0 {
+		o.groups[group] = []string{}
+		o.chances[group] = chance
+		o.tagsAll[group] = all
+		o.tagsAny[group] = any
 		return nil
 	}
 

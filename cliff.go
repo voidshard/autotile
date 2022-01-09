@@ -1,6 +1,7 @@
 package autotile
 
 import (
+	"fmt"
 	"math/rand"
 )
 

@@ -70,6 +70,20 @@ type MapOutline struct {
 	tags []map[string]bool
 }
 
+// AllTags returns all tags set on any tiles in the given map & their frequency
+func (m *MapOutline) AllTags() map[string]int {
+	found := map[string]int{}
+	for _, m := range m.tags {
+		for k, v := range m {
+			if v {
+				count, _ := found[k]
+				found[k] = count + 1
+			}
+		}
+	}
+	return found
+}
+
 // hasTag returns two bools, the first indicates if the given tag is present
 // on the given tile, the second indicates if the given tile (x,y) is valid.
 // Similar to a map returning (value, ok).
