@@ -40,9 +40,13 @@ func NewAutotiler(cfg *Config) (*Autotiler, error) {
 // In addition the object bin has a "nil" chance -- the probability that we do not
 // place an object at a given location.
 //
-// Note that we never place objects if *any* of their tiles would overwrite an
+// Note
+// - we never place objects if *any* of their tiles would overwrite an
 // existing tile on the given map.
+// - object bins are not threadsafe, AddObjects() calls should not share bins.
 func (a *Autotiler) AddObjects(mo *MapOutline, bin *ObjectBin) {
+	bin.normalise()
+
 	for y := 0; y < mo.Tilemap.Height; y++ {
 		for x := 0; x < mo.Tilemap.Width; x++ {
 			obj := bin.choose(mo, x, y, a.cfg.ZOffsetObject)
@@ -431,6 +435,7 @@ func (a *Autotiler) newMapOutline(o Outline, mx, my int) *MapOutline {
 	props.SetInt("worldoffset-y0", my)
 	tmap.SetMapProperties(props)
 
+	seed := a.cfg.Seed + int64(mx) - (int64(my) * int64(my))
 	meta := &MapOutline{
 		parent:    a,
 		Tilemap:   tmap,
@@ -442,7 +447,8 @@ func (a *Autotiler) newMapOutline(o Outline, mx, my int) *MapOutline {
 		MapY:      my,
 		MapWidth:  tmap.Width,
 		MapHeight: tmap.Height,
-		rng:       rand.New(rand.NewSource(a.cfg.Seed + int64(mx) - int64(my))),
+		seed:      seed,
+		rng:       rand.New(rand.NewSource(seed)),
 	}
 
 	// first, collect metadata about our area, we do this to avoid any work we can

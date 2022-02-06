@@ -1,7 +1,10 @@
 package autotile
 
 import (
+	perlin "github.com/voidshard/autotile/internal/perlin"
 	"github.com/voidshard/tile"
+
+	"image"
 
 	"fmt"
 	"sync"
@@ -32,85 +35,172 @@ const (
 	CliffFace string = "cliff"
 )
 
+// Distribution indicates how we'll distribute objects, or phrased another
+// way; how we're going to generate random numbers to determine what objects
+// go where.
+// RandomDistribution is the default.
+type Distribution string
+
+const (
+	// RandomDistribution means we use a normal RNG from the random Go package.
+	RandomDistribution Distribution = "random"
+
+	// PerlinDistribution uses a perlin noise function to determine random numbers
+	// between 0-1 for the map area. This has the effect of distributing things
+	// randomly but them appearing a little more ordered - patches of trees,
+	// paths through forests etc.
+	PerlinDistribution Distribution = "perlin"
+)
+
 // ObjectBin holds objects of varying types & handles choosing randomly via weighted
 // chances & tags.
+// Nb. ObjectBin is not considered threadsafe. If you are tiling multiple
+// maps using AddObjects() each map will need it's own bin.
 type ObjectBin struct {
 	// reference to a user given loader
 	load Loader
 
-	// map object name -> tile pap
+	// map object name -> tile map
 	objects map[string]*tile.Map
 
-	// map group name -> chance object is placed
-	chances map[string]float64
+	// all loaded groups & their config
+	groups map[string]*LoadConfig
 
-	// map object name -> object group
-	objgroup map[string]string
-
-	// map object group -> object names
-	groups map[string][]string
-
-	// tagsAll maps group -> tags (all)
-	tagsAll map[string][]string
-
-	// tagsAny maps group -> tags (any)
-	tagsAny map[string][]string
+	// how likely we are to place objects via a given model
+	distChance map[Distribution]float64
 
 	// how likely it is that we place nothing
 	nilChance float64
+
+	// perlinmap if distribution is PerlinDistribution
+	perlinmap *image.RGBA
 }
 
 // NewObjectBin creates a new ObjectBin that loads map via the given loader
 func NewObjectBin(ldr Loader) *ObjectBin {
 	return &ObjectBin{
-		load:     ldr,
-		objects:  map[string]*tile.Map{},
-		chances:  map[string]float64{},
-		objgroup: map[string]string{},
-		groups:   map[string][]string{},
-		tagsAll:  map[string][]string{},
-		tagsAny:  map[string][]string{},
+		load:    ldr,
+		objects: map[string]*tile.Map{},
+		groups:  map[string]*LoadConfig{},
 	}
+}
+
+// normalise ensures our object groups have normalied probabilities within their
+// distribution type & calculates the chance(s) that we place something in given
+// distribution types.
+func (o *ObjectBin) normalise() {
+	distTtl := map[Distribution]float64{
+		RandomDistribution: 0.0,
+		PerlinDistribution: 0.0,
+	}
+
+	allTotal := o.nilChance
+
+	// normalised probabilities within each distribution type
+	for _, g := range o.groups {
+		total, _ := distTtl[g.Distribution]
+		distTtl[g.Distribution] = total + g.Chance
+
+		allTotal += total
+	}
+	for _, g := range o.groups {
+		total, _ := distTtl[g.Distribution]
+		g.normChance = g.Chance / total
+	}
+
+	// the chance we'll pick a group with a given distribution type
+	dc := map[Distribution]float64{}
+	for dist, distProb := range distTtl {
+		dc[dist] = distProb / allTotal
+	}
+
+	o.distChance = dc
+}
+
+// SetDistribution sets how we'll generate random numbers
+func (o *ObjectBin) setPerlinDistribution(seed int64) {
+	o.perlinmap = perlin.New(1000, 1000, 0.06, seed)
+}
+
+// perlinValue yields a number 0-1 based on a perlin map value at (x,y)
+func (o *ObjectBin) perlinValue(x, y int) float64 {
+	c := o.perlinmap.At(x%1000, y%1000)
+	r, _, _, _ := c.RGBA() // it's greyscale anyways
+	return float64(r) / 255 / 255
 }
 
 // choose picks one of the given named objects considering their weights / tags for
 // the given location (x, y, z).
+//
+// Essentially we need three random numbers
+// - first a random number to determine what placement distribution we'll go with
+// - secondly a random number generated according to that distribution to select which
+//   group from that distribution to choose
+// - thirdly a final random number to choose which of the placeable object from that
+//   group to pick
+//
+// So assuming we had two groups with "PerlinDistribution" and two with "RandomDistribution"
+// we first randomly decide either Perlin or Random.
+// We then move on to picking a specific group from those within either Perlin or Random.
+// Finally we determine what objects from the chosen group are placeable
+// - if one is placeable -> done
+// - if none are placeable -> move onto the next group
+// - if more than one is placeable -> choose at random
 func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 	// firstly, check for a nil roll, since that vastly cuts down on our work
-	n := mo.rng.Float64()
-	if n <= o.nilChance {
+	rn := mo.rng.Float64()
+	if rn <= o.nilChance {
 		return nil // we rolled a `place nothing here`
 	}
 
+	// decide which distribution model we're going with
+	var distributionModel Distribution
 	sofar := o.nilChance
-	for group, chance := range o.chances {
-		// run through the groups, checking if we rolled that group
+	for name, chance := range o.distChance {
 		if chance <= 0 {
 			continue
 		}
+
 		sofar += chance
-		if n > sofar {
+		if rn > sofar {
 			continue
 		}
-		// else: implies n <= sofar
+		// else: implies rn <= sofar
 
-		all, _ := o.tagsAll[group]
-		any, _ := o.tagsAny[group]
+		distributionModel = name
 
-		names, ok := o.groups[group]
-		if !ok {
-			continue
-		}
-		if len(names) == 0 {
-			if matchTags(mo, all, any, x, y) {
-				return nil
-			} else {
-				continue
+		switch distributionModel {
+		case RandomDistribution:
+			rn = mo.rng.Float64()
+		case PerlinDistribution:
+			if o.perlinmap == nil {
+				o.setPerlinDistribution(mo.Seed())
 			}
+			rn = o.perlinValue(x, y)
 		}
 
+		break
+	}
+
+	// run through groups matching our chosen model & pick one
+	sofar = 0.0
+	for _, cfg := range o.groups {
+		if cfg.Distribution != distributionModel {
+			continue // we've already chosen which kind we want
+		}
+
+		if cfg.normChance <= 0 {
+			continue
+		}
+		sofar += cfg.normChance
+		if rn > sofar {
+			continue
+		}
+		// else: implies rn <= sofar
+
+		// finally we need to check what specific objects of this group fit
 		pickable := []*tile.Map{}
-		for _, name := range names {
+		for _, name := range cfg.Objects {
 			// we want an obj from this group, but we can only pick objects
 			// that fit & have their base match our tags.
 			obj, ok := o.objects[name]
@@ -129,10 +219,10 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 			suitable := true
 			for ty := y + obj.Height - objheight; ty < y+obj.Height; ty++ {
 				for tx := x; tx < x+obj.Width; tx++ {
-					suitable = matchTags(mo, all, any, tx, ty)
-				}
-				if !suitable {
-					break
+					suitable = matchTags(mo, cfg.TagsAll, cfg.TagsAny, tx, ty)
+					if !suitable {
+						break
+					}
 				}
 			}
 			if suitable {
@@ -142,7 +232,7 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 
 		switch len(pickable) {
 		case 0:
-			continue
+			continue // nothing fits :(
 		case 1:
 			return pickable[0]
 		default:
@@ -177,13 +267,12 @@ type obj struct {
 	Map  *tile.Map
 }
 
-// Load a group of objects ('tob' .tmx files) & set their internal chance & tags.
 //
-// `group` is a name for the group (giving the same name twice will overwrite previous group).
 // `chance` a base chance (0-1) for placing an object from this list.
 // `objects` a list of object keys, these are passed to the `Loader` interface for retrieval.
 // `all` is a list of tags base tiles must have in order to place one of the group
 // `any` is a list of tags base tiles should have at least one of in order to place one of the group
+// `distribution` here indicates how objects of this group should be laid out, ie, how random numbers are generated
 //
 // [all | any] When considering whether we can place an obj based on it's tags, all of it's base (lowesr
 // z-layer) tiles must fall on map tile(s) with matching tags.
@@ -199,32 +288,59 @@ type obj struct {
 // That is, the chance that we deliberately place *no* object at all.
 //
 // Nb:
-//  - objects are loaded in parallel so the loader is required to be thread-safe.
 //  - objects without tags are considered placable on any tiles
 //  - in the same way a nil `all` tags or `any` tags implies that we're happy with anything
 //  - objects will never be placed if they would overwrite existing tiles (regardless of tags)
-//  - chances are not normalised, you'll probably want to manage this yourself
 //  - if we're specifically given a group with no objects we will not place objects on
 //    tiles with matching tags (if rolled)
-func (o *ObjectBin) Load(group string, chance float64, objects, all, any []string) error {
+type LoadConfig struct {
+	// Chance is the probability that we will try to place an object from this group
+	Chance float64
+
+	// normChance is Chance normalised against other groups
+	normChance float64
+
+	// Objects is the list of objects belonging to this group. It is expected that
+	// even between groups each name yields a unique object (.tob)
+	Objects []string
+
+	// TagsAll indicates that all base tiles of this object must have each of these tags
+	TagsAll []string
+
+	// TagsAny indicates that all base tiles of this object must have at least one
+	// of these tags
+	TagsAny []string
+
+	// Distribution indicates how randomness is determined for this group
+	Distribution Distribution
+}
+
+func (l *LoadConfig) applyDefaults() {
+	if string(l.Distribution) == "" {
+		l.Distribution = RandomDistribution
+	}
+}
+
+// Load a group of objects ('tob' .tmx files) & set their internal chance & tags.
+// Nb:
+//  - objects are loaded in parallel so the loader is required to be thread-safe.
+func (o *ObjectBin) Load(group string, cfg *LoadConfig) error {
+	cfg.applyDefaults()
+
 	if group == "" {
-		o.nilChance = chance
+		o.nilChance = cfg.Chance
 		return nil
 	}
-	if len(objects) == 0 {
-		o.groups[group] = []string{}
-		o.chances[group] = chance
-		o.tagsAll[group] = all
-		o.tagsAny[group] = any
+	if cfg.Objects == nil || len(cfg.Objects) == 0 {
 		return nil
 	}
 
 	wg := &sync.WaitGroup{}
-	wg.Add(len(objects))
+	wg.Add(len(cfg.Objects))
 	objs := make(chan *obj)
 	errs := make(chan error)
 
-	for _, n := range objects {
+	for _, n := range cfg.Objects {
 		go func(name string) {
 			defer wg.Done()
 			objmap, err := o.load.Map(name)
@@ -245,7 +361,6 @@ func (o *ObjectBin) Load(group string, chance float64, objects, all, any []strin
 		close(errs)
 	}()
 
-	names := []string{}
 	failed := false
 	final := fmt.Errorf("failed to load map(s)")
 
@@ -259,19 +374,13 @@ func (o *ObjectBin) Load(group string, chance float64, objects, all, any []strin
 
 	for obj := range objs {
 		// insert into our internal maps
-		names = append(names, obj.Name)
 		o.objects[obj.Name] = obj.Map
-		o.objgroup[obj.Name] = group
 	}
-	o.groups[group] = names
-	o.chances[group] = chance
-	o.tagsAll[group] = all
-	o.tagsAny[group] = any
+	o.groups[group] = cfg
 
 	if !failed {
 		final = nil
 	}
-
 	return final
 }
 

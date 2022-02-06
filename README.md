@@ -45,26 +45,28 @@ Armed with this & some [config](https://github.com/voidshard/autotile/blob/main/
 
 #### Placing Objects
 
-To place tile objects (again, see 
-
 ```golang
+  // loader that reads .tmx objects from disk from current dir
   ldr := autotile.NewFileLoader("")
+
   bin := autotile.NewObjectBin(ldr)
   
   bin.Load(
     "trees",  // load a new group called "trees"
-    0.4,      // we should place an item from the group "trees" 40% of the time
-    []string{"tree.01.tmx", "shrub.01.tmx"}, // here are the trees that the Loader (above) knows how to load
-    nil,
-    []string{autotile.Dirt, autotile.Grass}, // items from group "trees" can be placed only on Dirt or Grass tiles
+    &autotile.LoadConfig{
+      Chance: 0.4,      // we should place an item from the group "trees" 40% of the time
+      Objects: []string{"tree.01.tmx", "shrub.01.tmx"}, // here are the trees that the Loader (above) knows how to load
+      TagsAny: []string{autotile.Dirt, autotile.Grass}, // items from group "trees" can be placed only on Dirt or Grass tiles
+      Distribution: autotile.RandomDistribution, // layout trees randomly
+    },
   )
   
   bin.Load(
      "",      // empty string represents the nil group; ie the chance we place nothing at all
-     0.6,     // %60 chance we don't place any object on a given tile
-     nil, 
-     nil, 
-     nil,
+     &autotile.LoadConfig{
+        Chance: 0.6,    // %60 chance we don't place any object on a given tile
+     
+     }
   )
   
   // where `m` is a MapOutline returned from CreateMaps and `at` is an autotiler from NewAutotiler()
@@ -73,24 +75,29 @@ To place tile objects (again, see
 ```
 Again checkout the [example](https://github.com/voidshard/autotile/blob/main/test/main.go) for more details.
 
-Notice a couple of things
+Some things to note on object placement
 - the Loader here in an interface with one function that loads a TMX map given some string. The most trivial example is FileLoader (where the key is a file path) but of course you can supply your own loader that does whatever
-- we can control what tiles the bottom (lowest z-layer) of the object sits on with the last two args `all` and `any` which both take a list of tags ([]string)
-- these tags are added at map creation time & as mentioned before the user can stipulate their own (by setting on an Area struct)
+- we can control what tiles the bottom (lowest z-layer) of the object sits on with tags `TagsAll` and `TagsAny` which both take a list of tags ([]string)
+- default tags (seen in examples) are added at map creation time
+- the user can stipulate their own additional tags (by returning on an Area struct) as the map is built
+- we never place an object if it would overwrite existing tiles, for this reason smaller objects are easier to place & you may need to adjust probabilities accordingly
+- we can supply `Distribution` to indicate how we want random values chosen for a given group. Currently we support `RandomDistribution` & `PerlinDistribution`
 
 Finally we can save out the resulting maps with a simple 
 ```golang
 	m.Tilemap.WriteFile("my-map.tmx")
 ```
-It's uh, recommended to not try to keep thousands of maps in memory at a time & to write the out ASAP.
+It's recommended to do this ASAP & not try to keep thousands of maps in memory at a time.
 
 
 #### The World
 
-The intention then is to turn a high level world map (depicting rivers , sea, height information, temperature, rivers, sea etc) into an arbitrarily large number of fully tiled maps, each of them representing some (x,y) offset chunk of the world space with fairly minimal work on our part.
+The intention then is to turn a high level world map (depicting rivers, sea, height information, temperature, lava, swamps etc) into an arbitrarily large number of fully tiled maps, each of them representing some (x,y) offset chunk of the world space with fairly minimal work on our part. For a simple example toy lib for this I have some [trivial worldgen code](https://github.com/voidshard/cartographer/blob/master/pkg/landscape/perlinworld.go).
 
 
 ### TODO
+
+API might change around for a bit while I'm adding features / organising things.
 
 There's more to come in this space -- I'd like to handle creating interiors, cities & villages, cave systems etc. Feel free to push up PRs, requests, fixes etc. 
 

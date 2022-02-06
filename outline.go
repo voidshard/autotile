@@ -57,7 +57,8 @@ type MapOutline struct {
 	numlava      int
 
 	// rng with our seed
-	rng *rand.Rand
+	seed int64
+	rng  *rand.Rand
 
 	// Tilemap is the tile.Map that we're setting tiles on.
 	// A user should be free to add objects to the map before using an objectbin
@@ -68,6 +69,11 @@ type MapOutline struct {
 
 	// tags set on each map index
 	tags []map[string]bool
+}
+
+// Seed returns our map outlines RNG seed value
+func (m *MapOutline) Seed() int64 {
+	return m.seed
 }
 
 // AllTags returns all tags set on any tiles in the given map & their frequency
