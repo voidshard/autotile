@@ -379,6 +379,7 @@ func (a *Autotiler) placeLand(o Outline, meta *MapOutline, me *Area) {
 	landtiles.setTags()
 
 	src, tag := firstFull(meta.rng, landtiles.Grass, landtiles.Dirt, landtiles.Rock)
+	ttag := ""
 	srcT := ""
 
 	beach := a.cfg.Params.BeachWidth
@@ -388,34 +389,35 @@ func (a *Autotiler) placeLand(o Outline, meta *MapOutline, me *Area) {
 		nearSea = len(a.withinRadius(o, meta.MapX, meta.MapY, me.X, me.Y, beach, func(in *Area) bool { return in.Sea })) > 0
 		nearSeaPlus = len(a.withinRadius(o, meta.MapX, meta.MapY, me.X, me.Y, beach+1, func(in *Area) bool { return in.Sea })) > 0
 	}
+	tsn := 5
 
-	if me.Temperature < a.cfg.Params.SnowLevel {
+	if me.Temperature <= a.cfg.Params.SnowLevel-tsn {
 		src, tag = firstFull(meta.rng, landtiles.Snow, landtiles.Dirt, landtiles.Rock)
-	} else if me.Temperature == a.cfg.Params.SnowLevel {
-		srcT, _ = firstTransition(meta.rng, landtiles.Snow, landtiles.Dirt, landtiles.Rock)
-	} else if me.Temperature < a.cfg.Params.VegetationMinTemp {
+	} else if me.Temperature <= a.cfg.Params.SnowLevel {
+		srcT, ttag = firstTransition(meta.rng, landtiles.Snow, landtiles.Dirt, landtiles.Rock)
+	} else if me.Temperature <= a.cfg.Params.VegetationMinTemp-tsn {
 		src, tag = firstFull(meta.rng, landtiles.Dirt, landtiles.Rock)
-	} else if me.Temperature == a.cfg.Params.VegetationMinTemp {
-		srcT, _ = firstTransition(meta.rng, landtiles.Dirt, landtiles.Rock)
+	} else if me.Temperature <= a.cfg.Params.VegetationMinTemp {
+		srcT, ttag = firstTransition(meta.rng, landtiles.Dirt, landtiles.Rock)
 	} else if nearSeaPlus && !nearSea {
-		srcT, _ = firstTransition(meta.rng, landtiles.Sand, landtiles.Rock)
+		srcT, ttag = firstTransition(meta.rng, landtiles.Sand, landtiles.Rock)
 	} else if nearSea {
 		src, tag = firstFull(meta.rng, landtiles.Sand, landtiles.Rock)
-	} else if me.Height > a.cfg.Params.MountainLevel {
+	} else if me.Height >= a.cfg.Params.MountainLevel+5 {
 		src, tag = firstFull(meta.rng, landtiles.Rock, landtiles.Dirt)
-	} else if me.Height == a.cfg.Params.MountainLevel {
-		srcT, _ = firstTransition(meta.rng, landtiles.Rock, landtiles.Dirt)
-	} else if me.Temperature > a.cfg.Params.VegetationMaxTemp+1 { // desert
+	} else if me.Height >= a.cfg.Params.MountainLevel {
+		srcT, ttag = firstTransition(meta.rng, landtiles.Rock, landtiles.Dirt)
+	} else if me.Temperature >= a.cfg.Params.VegetationMaxTemp+tsn { // desert
 		src, tag = firstFull(meta.rng, landtiles.Sand, landtiles.Rock, landtiles.Dirt)
-	} else if me.Temperature == a.cfg.Params.VegetationMaxTemp+1 {
-		srcT, _ = firstTransition(meta.rng, landtiles.Sand, landtiles.Rock, landtiles.Dirt)
+	} else if me.Temperature >= a.cfg.Params.VegetationMaxTemp {
+		srcT, ttag = firstTransition(meta.rng, landtiles.Sand, landtiles.Rock, landtiles.Dirt)
 	}
 
 	if srcT != "" {
 		meta.Tilemap.Set(me.X, me.Y, a.cfg.ZOffsetLand+1, srcT)
 		meta.Tilemap.SetProperties(srcT, propertiesLand)
 	}
-	meta.SetTags(me.X, me.Y, Ground, tag)
+	meta.SetTags(me.X, me.Y, Ground, tag, ttag)
 	meta.Tilemap.Set(me.X, me.Y, a.cfg.ZOffsetLand, src)
 	meta.Tilemap.SetProperties(src, propertiesLand)
 }

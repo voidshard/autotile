@@ -86,6 +86,13 @@ type WorldParams struct {
 	// Minimum of 0
 	BeachWidth int
 
+	// TransitionWidth indicates how many `units` we take to transition from one
+	// ground type to another.
+	// Ie. we start using sand transitions at VegetationMaxTemp and move
+	// to full sand at VegetationMaxTemp+TransitionWidth
+	// Minimum of 0
+	TransitionWidth int
+
 	// VegetationMaxTemp is the highest the temperature can be before we decide
 	// it's too hot for there to be vegetation.
 	// Temp in degrees C
@@ -114,6 +121,9 @@ type WorldParams struct {
 func (w *WorldParams) validate() error {
 	if w.BeachWidth < 0 {
 		w.BeachWidth = 0
+	}
+	if w.TransitionWidth < 0 {
+		w.TransitionWidth = 0
 	}
 	if w.VegetationMaxTemp <= w.VegetationMinTemp {
 		return fmt.Errorf("%w: vegetation max temp should be greater than min temp", ErrInvalidValue)
