@@ -1,7 +1,7 @@
 package autotile
 
 const (
-	// Water represents *any* water tile (regardless of swamp/sea/river etc)
+	// Water represents *any* water tile
 	Water string = "water"
 
 	// Specific kinds of ground
