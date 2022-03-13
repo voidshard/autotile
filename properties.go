@@ -27,6 +27,7 @@ var (
 	propertiesLand  *tile.Properties = nil
 	propertiesRoad  *tile.Properties = nil
 	propertiesLava  *tile.Properties = nil
+	propertiesNull  *tile.Properties = nil
 )
 
 func init() {
@@ -55,4 +56,8 @@ func init() {
 	propertiesWFall.SetString(pObject, "waterfall")
 	propertiesWFall.SetBool(pWall, true)
 	propertiesWFall.SetBool(pWater, true)
+
+	propertiesNull = tile.NewProperties()
+	propertiesNull.SetString(pObject, "null")
+	propertiesNull.SetBool(pWall, true)
 }

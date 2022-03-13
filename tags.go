@@ -18,5 +18,5 @@ const (
 	CliffEdge string = "cliff-edge"
 
 	// we placed nothing
-	Null string = ""
+	Null string = "null"
 )

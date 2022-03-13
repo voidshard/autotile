@@ -82,7 +82,7 @@ func (a *Autotiler) SetLand(o Outline, region image.Rectangle, t tile.Tileable) 
 		return nil
 	}
 
-	placementFuncs := []fnPlacements{a.placeLand, a.placeWater, a.placeRoad, a.placeMolten, a.placeCliffs}
+	placementFuncs := []fnPlacements{a.placeNull, a.placeLand, a.placeWater, a.placeRoad, a.placeMolten, a.placeCliffs}
 
 	seed := a.cfg.Seed + int64(region.Min.X)*int64(region.Max.Y) - int64(region.Max.X)*int64(region.Min.Y)
 	rng := rand.New(rand.NewSource(seed))
@@ -106,6 +106,22 @@ func (a *Autotiler) SetLand(o Outline, region image.Rectangle, t tile.Tileable) 
 	}
 
 	return nil
+}
+
+func (a *Autotiler) placeNull(o Outline, rng *rand.Rand, me *area, tagsonly bool) ([]*Event, string, error) {
+	if !me.Data.IsNull() {
+		return nil, "", nil
+	}
+	if tagsonly {
+		return nil, Null, nil
+	}
+
+	tiles := me.Data.Tiles()
+	if tiles == nil || tiles.Null == "" {
+		return nil, Null, nil
+	}
+
+	return []*Event{newEvent(me.X, me.Y, a.cfg.ZOffsetLand, tiles.Null, propertiesNull)}, Null, nil
 }
 
 func (a *Autotiler) placeLand(o Outline, rng *rand.Rand, me *area, _ bool) ([]*Event, string, error) {
@@ -380,7 +396,7 @@ func (a *Autotiler) placeCliffs(o Outline, rng *rand.Rand, me *area, tagonly boo
 // We return user set tags + the tag we consider the most important for the terrain.
 func (a *Autotiler) TagsAt(o Outline, x, y int) ([]string, error) {
 	me := newArea(o, x, y)
-	placementFuncs := []fnPlacements{a.placeCliffs, a.placeWater, a.placeMolten, a.placeRoad, a.placeLand}
+	placementFuncs := []fnPlacements{a.placeNull, a.placeCliffs, a.placeWater, a.placeMolten, a.placeRoad, a.placeLand}
 	rng := rand.New(rand.NewSource(0)) // doesn't affect the tag we get (only the specific src image)
 
 	var err error
