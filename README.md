@@ -23,7 +23,7 @@ For the later, placing larger logical objects, this uses & is designed to be use
 
 Firstly we'd like apply base or landscape type tiles to our map - grass, snow, dirt, water, cliffs, lava, waterfalls etc.
 
-In order to do this we supply something that satisfies the [Outline interface](https://github.com/voidshard/autotile/blob/main/outline.go) 
+In order to do this we supply something that satisfies the [Outline interface](https://github.com/voidshard/autotile/blob/main/interface.go) 
 ```golang
 // tell me what the area is like at world co-ords (x, y)
 LandAt(x, y int) LandData
@@ -32,7 +32,7 @@ Returning [LandData](https://github.com/voidshard/autotile/blob/main/interface.g
 - height 
 - average temperature 
 - whether the given point has water (sea, river, swamp), lava, is a road etc
-- a [LandTiles](https://github.com/voidshard/autotile/blob/main/land.go) struct that tells us what tile(s) we can place at this location
+- a [LandTiles](https://github.com/voidshard/autotile/blob/main/landtiles.go) struct that tells us what tile(s) we can place at this location
 - optional tags ([]string) associated with this (x,y) (some [tags](https://github.com/voidshard/autotile/blob/main/tags.go) are set by the tiler but this allows user defined tags)
 
 Armed with this & some [config](https://github.com/voidshard/autotile/blob/main/config.go) information we can begin tiling maps. Checkout the [example](https://github.com/voidshard/autotile/blob/main/test/main.go).
