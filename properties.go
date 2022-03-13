@@ -15,7 +15,6 @@ const (
 
 	// names of various properties of interest
 	pObject = "object"
-	pBiome  = "biome"
 	pWall   = "wall"
 	pWater  = "water"
 	pLava   = "lava"
@@ -36,30 +35,24 @@ func init() {
 
 	propertiesWater = tile.NewProperties()
 	propertiesWater.SetString(pObject, "water")
-	propertiesWater.SetString(pBiome, "river")
 	propertiesWater.SetBool(pWater, true)
 
 	propertiesLand = tile.NewProperties()
 	propertiesLand.SetString(pObject, "land")
-	propertiesLand.SetString(pBiome, "land")
 
 	propertiesRoad = tile.NewProperties()
 	propertiesRoad.SetString(pObject, "road")
-	propertiesRoad.SetString(pBiome, "land")
 
 	propertiesCliff = tile.NewProperties()
 	propertiesCliff.SetString(pObject, "cliff-face")
-	propertiesCliff.SetString(pBiome, "rock")
 	propertiesCliff.SetBool(pWall, true)
 
 	propertiesLava = tile.NewProperties()
 	propertiesLava.SetString(pObject, "lava")
-	propertiesLava.SetString(pBiome, "volcanic")
 	propertiesLava.SetBool(pLava, true)
 
 	propertiesWFall = tile.NewProperties()
 	propertiesWFall.SetString(pObject, "waterfall")
-	propertiesWFall.SetString(pBiome, "river")
 	propertiesWFall.SetBool(pWall, true)
 	propertiesWFall.SetBool(pWater, true)
 }

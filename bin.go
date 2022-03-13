@@ -4,35 +4,11 @@ import (
 	perlin "github.com/voidshard/autotile/internal/perlin"
 	"github.com/voidshard/tile"
 
-	"image"
-
 	"fmt"
+	"image"
+	"math/rand"
+	"sort"
 	"sync"
-)
-
-const (
-	// Water represents *any* water tile (regardless of swamp/sea/river etc)
-	Water string = "water"
-
-	// Specific kinds of water
-	Swamp string = "swamp"
-	River string = "river"
-	Sea   string = "sea"
-
-	// Ground is a catch all for *any* "solid ground" ie. not water / lava
-	Ground string = "ground"
-
-	// Specific kinds of ground
-	Grass string = "grass"
-	Sand  string = "sand"
-	Dirt  string = "dirt"
-	Snow  string = "snow"
-	Rock  string = "rock"
-
-	// Other misc options
-	Road      string = "road"
-	Lava      string = "lava"
-	CliffFace string = "cliff"
 )
 
 // Distribution indicates how we'll distribute objects, or phrased another
@@ -52,11 +28,10 @@ const (
 	PerlinDistribution Distribution = "perlin"
 )
 
-// ObjectBin holds objects of varying types & handles choosing randomly via weighted
+// Bin holds objects of varying types & handles choosing randomly via weighted
 // chances & tags.
-// Nb. ObjectBin is not considered threadsafe. If you are tiling multiple
-// maps using AddObjects() each map will need it's own bin.
-type ObjectBin struct {
+// Nb. Bin is not considered threadsafe.
+type Bin struct {
 	// reference to a user given loader
 	load Loader
 
@@ -64,7 +39,8 @@ type ObjectBin struct {
 	objects map[string]*tile.Map
 
 	// all loaded groups & their config
-	groups map[string]*LoadConfig
+	groups     map[string]*BinGroupConfig
+	groupOrder []string // order which we'll iterate during Choose)
 
 	// how likely we are to place objects via a given model
 	distChance map[Distribution]float64
@@ -74,21 +50,32 @@ type ObjectBin struct {
 
 	// perlinmap if distribution is PerlinDistribution
 	perlinmap *image.RGBA
+
+	// random number generator
+	rng  *rand.Rand
+	seed int64
+
+	tiler      *Autotiler
+	mapoutline Outline
 }
 
-// NewObjectBin creates a new ObjectBin that loads map via the given loader
-func NewObjectBin(ldr Loader) *ObjectBin {
-	return &ObjectBin{
-		load:    ldr,
-		objects: map[string]*tile.Map{},
-		groups:  map[string]*LoadConfig{},
+// NewBin creates a new Bin that loads map via the given loader
+func NewBin(a *Autotiler, o Outline, seed int64, ldr Loader) *Bin {
+	return &Bin{
+		tiler:      a,
+		mapoutline: o,
+		seed:       seed,
+		rng:        rand.New(rand.NewSource(seed)),
+		load:       ldr,
+		objects:    map[string]*tile.Map{},
+		groups:     map[string]*BinGroupConfig{},
 	}
 }
 
 // normalise ensures our object groups have normalied probabilities within their
 // distribution type & calculates the chance(s) that we place something in given
 // distribution types.
-func (o *ObjectBin) normalise() {
+func (o *Bin) normalise() {
 	distTtl := map[Distribution]float64{
 		RandomDistribution: 0.0,
 		PerlinDistribution: 0.0,
@@ -118,18 +105,18 @@ func (o *ObjectBin) normalise() {
 }
 
 // SetDistribution sets how we'll generate random numbers
-func (o *ObjectBin) setPerlinDistribution(seed int64) {
-	o.perlinmap = perlin.New(1000, 1000, 0.06, seed)
+func (o *Bin) setPerlinDistribution() {
+	o.perlinmap = perlin.New(1000, 1000, 0.06, o.seed)
 }
 
 // perlinValue yields a number 0-1 based on a perlin map value at (x,y)
-func (o *ObjectBin) perlinValue(x, y int) float64 {
+func (o *Bin) perlinValue(x, y int) float64 {
 	c := o.perlinmap.At(x%1000, y%1000)
 	r, _, _, _ := c.RGBA() // it's greyscale anyways
 	return float64(r) / 255 / 255
 }
 
-// choose picks one of the given named objects considering their weights / tags for
+// Choose picks one of the given named objects considering their weights / tags for
 // the given location (x, y, z).
 //
 // Essentially we need three random numbers
@@ -146,17 +133,21 @@ func (o *ObjectBin) perlinValue(x, y int) float64 {
 // - if one is placeable -> done
 // - if none are placeable -> move onto the next group
 // - if more than one is placeable -> choose at random
-func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
+func (o *Bin) Choose(t tile.Tileable, x, y, z int) (string, *tile.Map, error) {
+	// nb. careful to iterate lists here & not dists (whose order is undefined)
+
 	// firstly, check for a nil roll, since that vastly cuts down on our work
-	rn := mo.rng.Float64()
+	rn := o.rng.Float64()
 	if rn <= o.nilChance {
-		return nil // we rolled a `place nothing here`
+		return "", nil, nil // we rolled a `place nothing here`
 	}
 
 	// decide which distribution model we're going with
 	var distributionModel Distribution
 	sofar := o.nilChance
-	for name, chance := range o.distChance {
+	for _, name := range []Distribution{RandomDistribution, PerlinDistribution} {
+		chance, _ := o.distChance[name]
+
 		if chance <= 0 {
 			continue
 		}
@@ -171,10 +162,10 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 
 		switch distributionModel {
 		case RandomDistribution:
-			rn = mo.rng.Float64()
+			rn = o.rng.Float64()
 		case PerlinDistribution:
 			if o.perlinmap == nil {
-				o.setPerlinDistribution(mo.Seed())
+				o.setPerlinDistribution()
 			}
 			rn = o.perlinValue(x, y)
 		}
@@ -184,8 +175,9 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 
 	// run through groups matching our chosen model & pick one
 	sofar = 0.0
-	for _, cfg := range o.groups {
-		if cfg.Distribution != distributionModel {
+	for _, groupName := range o.groupOrder {
+		cfg, ok := o.groups[groupName]
+		if !ok || cfg.Distribution != distributionModel {
 			continue // we've already chosen which kind we want
 		}
 
@@ -199,6 +191,7 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 		// else: implies rn <= sofar
 
 		// finally we need to check what specific objects of this group fit
+		pickablenames := []string{}
 		pickable := []*tile.Map{}
 		for _, name := range cfg.Objects {
 			// we want an obj from this group, but we can only pick objects
@@ -209,7 +202,11 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 			}
 
 			// object doesn't fit without overwriting existing tiles -> never place
-			if !mo.Tilemap.Fits(x, y, z, obj) {
+			fits, err := t.Fits(x, y, z, obj)
+			if err != nil {
+				return "", nil, err
+			}
+			if !fits {
 				continue
 			}
 
@@ -219,7 +216,12 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 			suitable := true
 			for ty := y + obj.Height - objheight; ty < y+obj.Height; ty++ {
 				for tx := x; tx < x+obj.Width; tx++ {
-					suitable = matchTags(mo, cfg.TagsAll, cfg.TagsAny, tx, ty)
+					tiletags, err := o.tiler.TagsAt(o.mapoutline, tx, ty)
+					if err != nil {
+						return "", nil, err
+					}
+
+					suitable = matchTags(tiletags, cfg.TagsAll, cfg.TagsAny)
 					if !suitable {
 						break
 					}
@@ -227,6 +229,7 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 			}
 			if suitable {
 				pickable = append(pickable, obj)
+				pickablenames = append(pickablenames, name)
 			}
 		}
 
@@ -234,31 +237,46 @@ func (o *ObjectBin) choose(mo *MapOutline, x, y, z int) *tile.Map {
 		case 0:
 			continue // nothing fits :(
 		case 1:
-			return pickable[0]
+			return pickablenames[0], pickable[0], nil
 		default:
-			return pickable[mo.rng.Intn(len(pickable))]
+			num := o.rng.Intn(len(pickable))
+			return pickablenames[num], pickable[num], nil
 		}
 	}
 
-	return nil
+	return "", nil, nil
 }
 
-// matchTags returns of the given tile (x, y) has all tags in 'all'
+// matchTags returns if the given tile tags has all tags in 'all'
 // and at least one of the tags in 'any'
 // Passing nils / no tags causes us to consider that check 'true'
-// That is matchTags(outline, nil, nil, x, y) => true
-func matchTags(mo *MapOutline, all, any []string, x, y int) bool {
+func matchTags(tiletags, all, any []string) bool {
+	tags := map[string]bool{}
+	for _, t := range tiletags {
+		tags[t] = true
+	}
+
 	if all != nil {
 		for _, t := range all {
-			if !mo.HasTag(x, y, t) {
+			_, found := tags[t]
+			if !found {
 				return false
 			}
 		}
 	}
+
 	if any == nil || len(any) == 0 {
 		return true
 	}
-	return mo.HasAnyTags(x, y, any)
+
+	for _, t := range any {
+		_, found := tags[t]
+		if found {
+			return true
+		}
+	}
+
+	return false
 }
 
 // obj is an internal struct used during loading
@@ -293,7 +311,7 @@ type obj struct {
 //  - objects will never be placed if they would overwrite existing tiles (regardless of tags)
 //  - if we're specifically given a group with no objects we will not place objects on
 //    tiles with matching tags (if rolled)
-type LoadConfig struct {
+type BinGroupConfig struct {
 	// Chance is the probability that we will try to place an object from this group
 	Chance float64
 
@@ -315,7 +333,7 @@ type LoadConfig struct {
 	Distribution Distribution
 }
 
-func (l *LoadConfig) applyDefaults() {
+func (l *BinGroupConfig) applyDefaults() {
 	if string(l.Distribution) == "" {
 		l.Distribution = RandomDistribution
 	}
@@ -324,7 +342,7 @@ func (l *LoadConfig) applyDefaults() {
 // Load a group of objects ('tob' .tmx files) & set their internal chance & tags.
 // Nb:
 //  - objects are loaded in parallel so the loader is required to be thread-safe.
-func (o *ObjectBin) Load(group string, cfg *LoadConfig) error {
+func (o *Bin) Load(group string, cfg *BinGroupConfig) error {
 	cfg.applyDefaults()
 
 	if group == "" {
@@ -377,10 +395,14 @@ func (o *ObjectBin) Load(group string, cfg *LoadConfig) error {
 		o.objects[obj.Name] = obj.Map
 	}
 	o.groups[group] = cfg
+	o.groupOrder = append(o.groupOrder, group)
 
 	if !failed {
 		final = nil
 	}
+
+	sort.Strings(o.groupOrder)
+	o.normalise()
 	return final
 }
 
@@ -391,22 +413,28 @@ func (o *ObjectBin) Load(group string, cfg *LoadConfig) error {
 // . . .
 // . . .
 // . x .
-// x x x
+// . x x
 // x x x
 // where . is nil, x is a non-nil tile, we'd be hoping for `3`
+// since on the second column an x reaches the 3rd row, counting
+// upwards from the bottom.
 func baseHeight(m *tile.Map) int {
+	// determine lowest layer
 	layers := m.ZLevels()
 	if layers == nil || len(layers) == 0 {
 		return 0
 	}
 	first := layers[0]
 
+	// walk from the top left corner until we find the first
+	// non nil tile
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
 			if m.At(x, y, first) == nil {
 				continue
 			}
 
+			// since we want height from the bottom
 			return m.Height - y
 		}
 	}

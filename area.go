@@ -41,65 +41,30 @@ var (
 	}
 )
 
-// Area represents a single pixel section on a map from which
-// we can generate tiles.
-type Area struct {
+// area represents a single X,Y on the map
+// We use this internally so we can encapsulate some metadata about where this
+// came from & it's relation to other points of interest.
+type area struct {
 	// the X co-ord of this area
 	X int
 
 	// the Y co-ord of this area
 	Y int
 
-	// land tiles applicable to this area.
-	Land *Land
-
-	// height in units - actual units isn't important.
-	// Differences in height over our config.CliffLevel is used to decide
-	// where cliffs go. We also use this to transition to rock landscapes over
-	// config.MountainLevel
-	Height int
-
-	// Temperature in degrees. We use this along with our config values
-	// VegetationMinTemp, VegetationMaxTemp, SnowLevel to determine appropriate
-	// terrain types to use (ie. snow, grass, dirt, rock) etc.
-	Temperature int
-
-	// Sea true if this pixel is in the sea
-	Sea bool
-
-	// River true if this pixel is in a river
-	River bool
-
-	// Swamp true if this pixel is swamp water
-	Swamp bool
-
-	// Lava true if there is molten rock here
-	Lava bool
-
-	// Road true if we should be depicting a road/path/street
-	Road bool
-
-	// Tags are custom tags added to this tile(s) for use with an
-	// objectbin later on
-	Tags []string
+	Data LandData
 
 	// internally used to track this tiles' relation to another
 	heading Heading
 }
 
-// isWater returns if we consider this area underwater
-func (a *Area) isWater() bool {
-	return a.Sea || a.River || a.Swamp
-}
-
 // setHeading sets heading to `in` and returns the area
-func (a *Area) setHeading(in Heading) *Area {
+func (a *area) setHeading(in Heading) *area {
 	a.heading = in
 	return a
 }
 
 // headings returns the `heading` values of the given areas
-func headings(in []*Area) []Heading {
+func headings(in []*area) []Heading {
 	ls := []Heading{}
 	for _, h := range in {
 		ls = append(ls, h.heading)
@@ -132,21 +97,21 @@ func includes(a []Heading, b ...Heading) bool {
 	return false
 }
 
-// nearby is a set of areas near the given tile
+// nearby is a set of areas near (adjacent to) a given tile
 type nearby struct {
-	North     *Area
-	NorthEast *Area
-	East      *Area
-	SouthEast *Area
-	South     *Area
-	SouthWest *Area
-	West      *Area
-	NorthWest *Area
+	North     *area
+	NorthEast *area
+	East      *area
+	SouthEast *area
+	South     *area
+	SouthWest *area
+	West      *area
+	NorthWest *area
 }
 
 // all returns all tiles nearby in 8 cardinal directions
-func (n *nearby) all() []*Area {
-	return []*Area{
+func (n *nearby) all() []*area {
+	return []*area{
 		n.North,
 		n.NorthEast,
 		n.East,
@@ -159,64 +124,51 @@ func (n *nearby) all() []*Area {
 }
 
 // Lower returns tiles nearby lower than the given value (in height)
-func (n *nearby) Lower(h int) []*Area {
-	land := []*Area{}
+func (n *nearby) Lower(h int) []*area {
+	land := []*area{}
 	for _, t := range n.all() {
-		if t.Height < h {
+		if t.Data.Height() < h {
 			land = append(land, t)
 		}
 	}
 	return land
 }
 
-// Land returns all tiles nearby that are not water
-func (n *nearby) Land() []*Area {
-	land := []*Area{}
-	for _, t := range n.all() {
-		if t.isWater() {
-			continue
-		}
-		land = append(land, t)
-	}
-	return land
-}
-
-// Water returns all tiles nearby that are water
-func (n *nearby) Water() []*Area {
-	water := []*Area{}
-	for _, t := range n.all() {
-		if t.isWater() {
-			water = append(water, t)
-		}
-	}
-	return water
-}
-
 // cardinals returns information on surrounding tiles
-func (a *Autotiler) cardinals(o Outline, mx, my, tx, ty int) *nearby {
+func cardinals(o Outline, tx, ty int) *nearby {
 	return &nearby{
-		a.AtMapCoord(o, mx, my, tx, ty-1).setHeading(North),
-		a.AtMapCoord(o, mx, my, tx+1, ty-1).setHeading(NorthEast),
-		a.AtMapCoord(o, mx, my, tx+1, ty).setHeading(East),
-		a.AtMapCoord(o, mx, my, tx+1, ty+1).setHeading(SouthEast),
-		a.AtMapCoord(o, mx, my, tx, ty+1).setHeading(South),
-		a.AtMapCoord(o, mx, my, tx-1, ty+1).setHeading(SouthWest),
-		a.AtMapCoord(o, mx, my, tx-1, ty).setHeading(West),
-		a.AtMapCoord(o, mx, my, tx-1, ty-1).setHeading(NorthWest),
+		newArea(o, tx, ty-1).setHeading(North),
+		newArea(o, tx+1, ty-1).setHeading(NorthEast),
+		newArea(o, tx+1, ty).setHeading(East),
+		newArea(o, tx+1, ty+1).setHeading(SouthEast),
+		newArea(o, tx, ty+1).setHeading(South),
+		newArea(o, tx-1, ty+1).setHeading(SouthWest),
+		newArea(o, tx-1, ty).setHeading(West),
+		newArea(o, tx-1, ty-1).setHeading(NorthWest),
 	}
+}
+
+// newArea returns a new area of the given co-ord pair
+func newArea(o Outline, x, y int) *area {
+	return &area{X: x, Y: y, Data: o.LandAt(x, y)}
 }
 
 // withinRadius returns all tiles with `r` of (tx, ty) in map (mx, my) that
 // matches some func
-func (a *Autotiler) withinRadius(o Outline, mx, my, tx, ty, r int, fn func(*Area) bool) []*Area {
-	found := []*Area{}
+func withinRadius(o Outline, tx, ty, r int, fn func(*area) bool) []*area {
+	found := []*area{}
 
 	for iy := ty - r; iy <= ty+r; iy++ {
 		for ix := tx - r; ix <= tx+r; ix++ {
-			candidate := a.AtMapCoord(o, mx, my, ix, iy)
+			if tx == ix && ty == iy {
+				continue
+			}
+
+			candidate := newArea(o, ix, iy)
 			if !fn(candidate) {
 				continue
 			}
+
 			found = append(found, candidate)
 		}
 	}

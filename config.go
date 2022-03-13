@@ -17,41 +17,12 @@ var (
 // Config dictates various top level concerns with our rendering / creation process
 type Config struct {
 	// Seed is used for RNG. If zero a random value will be used.
-	// Each MapOutline is given the seed mutated deterministically by the map
-	// offset (ie. the world map x,y values) for it's own RNG.
+	// Each region will get it's own Seed based on this + some math operations
+	// on the min/max x/y values given (deterministically) .. this means that
+	// the same function call with the same input Outline for a given rectangle
+	// ("region") should choose the same tiles (assuming the Outline is returning
+	// the same data each time).
 	Seed int64
-
-	// step size is how many pixels should be used at a time to make
-	// each map. We then enlarge each `StepSize` pixel area into `MapSize` in tiles.
-	// Ie. 100 would turn a 1k by 1k world map into 10x10 smaller
-	// maps, where each represented an enlarged area of 100x100.
-	//
-	// Nb. because we need 3 tiles to depict rivers & waterfalls we require
-	// that each world map level pixel be expanded into at least 3 area level tiles.
-	// This implies that the ratio of map size to step size should be at least 3.
-	// In other words "MapSize >= StepSize * 3" should be true.
-	// Otherwise .. we can't nicely tile rivers, cliffs, lava, waterfalls etc.
-	//
-	// A value of 0 would mean 'use the whole input map'
-	StepSize int
-
-	// MapSize in tiles. Dictates how many tiles wide & high each
-	// map should be. This is expected to be at least 3x `StepSize`
-	// (value is enforced).
-	//
-	// Nb. we don't enforce a max output size for the map -- you can try to make
-	// a 1Mx1M tile map if you want. Probably your computer will melt though.
-	MapSize int
-
-	// TileSize is the height & width of each tile, in pixels.
-	// Defaults to 32.
-	TileSize int
-
-	// Params around limits, world settings, biome transitions
-	Params *WorldParams
-
-	// Worker routines (number of maps to build simultaneously).
-	Routines int
 
 	// Layer at which base land tiles are set.
 	// Set to default value if not set. In general you shouldn't need to set this.
@@ -77,11 +48,8 @@ type Config struct {
 	// Set to default value if not set. If you need to set this then you probably want
 	// it to be higher than all of the other offsets ..
 	ZOffsetObject int
-}
 
-// WorldParams lays out some limits or general outlines for the world.
-type WorldParams struct {
-	// BeachWidth is how many tiles sand should travel up from sea tiles.
+	// BeachWidth is how many tiles sand should travel up from water tiles.
 	// Higher values means wider beaches / more sand.
 	// Minimum of 0
 	BeachWidth int
@@ -117,50 +85,23 @@ type WorldParams struct {
 	SnowLevel int
 }
 
-// validate correct WorldParams
-func (w *WorldParams) validate() error {
-	if w.BeachWidth < 0 {
-		w.BeachWidth = 0
-	}
-	if w.TransitionWidth < 0 {
-		w.TransitionWidth = 0
-	}
-	if w.VegetationMaxTemp <= w.VegetationMinTemp {
-		return fmt.Errorf("%w: vegetation max temp should be greater than min temp", ErrInvalidValue)
-	}
-	return nil
-}
-
 // Validate that the config is correct
 func (c *Config) Validate() error {
-	if c.TileSize < 1 {
-		c.TileSize = 32
-	}
-
-	if c.Routines < 1 {
-		c.Routines = 1
-	}
-
 	if c.Seed == 0 {
 		c.Seed = time.Now().UnixNano()
 	}
 
-	if c.StepSize < 0 {
-		c.StepSize = 0
-		c.MapSize = 0
-	} else if c.MapSize < c.StepSize*3 {
-		return fmt.Errorf("%w: MapSize should be >= StepSize * 3", ErrInvalidValue)
+	if c.BeachWidth < 0 {
+		c.BeachWidth = 0
+	}
+	if c.TransitionWidth < 0 {
+		c.TransitionWidth = 0
+	}
+	if c.VegetationMaxTemp <= c.VegetationMinTemp {
+		return fmt.Errorf("%w: vegetation max temp should be greater than min temp", ErrInvalidValue)
 	}
 
-	if c.Params == nil {
-		c.Params = &WorldParams{
-			BeachWidth:        3,
-			VegetationMaxTemp: 50,
-			VegetationMinTemp: -20,
-		}
-	}
-
-	if c.ZOffsetLand <= 0 {
+	if c.ZOffsetLand < 0 {
 		c.ZOffsetLand = zoffsetLand
 	}
 	if c.ZOffsetWater <= 0 {
@@ -179,5 +120,5 @@ func (c *Config) Validate() error {
 		c.ZOffsetObject = zoffsetObject
 	}
 
-	return c.Params.validate()
+	return nil
 }

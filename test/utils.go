@@ -7,20 +7,14 @@ import (
 )
 
 var cfg = &autotile.Config{
-	StepSize: 10,
-	MapSize:  30,
-	TileSize: 32,
-	Params: &autotile.WorldParams{
-		BeachWidth:        3,
-		VegetationMaxTemp: 45,
-		VegetationMinTemp: -5,
-		MountainLevel:     240,
-		CliffLevel:        170,
-	},
-	Routines: 10,
+	BeachWidth:        2,
+	VegetationMaxTemp: 45,
+	VegetationMinTemp: -5,
+	MountainLevel:     240,
+	CliffLevel:        170,
 }
 
-var land = &autotile.Land{
+var land = &autotile.LandTiles{
 	Grass: &autotile.BasicLand{
 		Full:       []string{"grass.full.01.png"},
 		Transition: []string{"grass.trans.01.png"},
@@ -90,12 +84,14 @@ var land = &autotile.Land{
 }
 
 type testOutline struct {
-	r           image.Rectangle
-	grid        [][]*autotile.Area
+	grid [][]*Area
+	max  int
+
+	scale       int
 	DefaultTemp int
 }
 
-func newOutline(grid [][]*autotile.Area) *testOutline {
+func newOutline(grid [][]*Area) *testOutline {
 	max := len(grid)
 	for _, row := range grid {
 		if len(row) > max {
@@ -103,45 +99,72 @@ func newOutline(grid [][]*autotile.Area) *testOutline {
 		}
 	}
 	return &testOutline{
-		r:    image.Rect(0, 0, max, max),
-		grid: grid,
+		grid:  grid,
+		max:   max,
+		scale: 1,
 	}
 }
 
-func (o *testOutline) Bounds() image.Rectangle {
-	return o.r
+func (o *testOutline) SetScale(i int) {
+	if i <= 0 {
+		o.SetScale(1)
+	}
+	o.scale = i
 }
 
-func max(a, b int) int {
+func (o *testOutline) Bounds() image.Rectangle {
+	return image.Rect(0, 0, o.max*o.scale, o.max*o.scale)
+}
+
+func maxInt(a, b int) int {
 	if a > b {
 		return a
 	}
 	return b
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func (o *testOutline) At(x, y int) *autotile.Area {
+func (o *testOutline) LandAt(inx, iny int) autotile.LandData {
+	inx = maxInt(minInt(inx, o.max*o.scale-1), 0)
+	iny = maxInt(minInt(iny, o.max*o.scale-1), 0)
+
+	x := inx / o.scale
+	y := iny / o.scale
+
 	if y >= 0 && y < len(o.grid) {
 		if x >= 0 && x < len(o.grid[y]) {
-			a := o.grid[y][x]
-			a.X = x
-			a.Y = y
-			if a.Temperature == 0 {
-				a.Temperature = o.DefaultTemp
-			}
-			a.Land = land
-			return a
+			result := o.grid[y][x]
+			result.o = o
+			return result
 		}
 	}
 
-	validy := min(max(y, 0), len(o.grid)-1)
-	validx := min(max(x, 0), len(o.grid[validy])-1)
+	validy := minInt(maxInt(y, 0), len(o.grid)-1)
+	validx := minInt(maxInt(x, 0), len(o.grid[validy])-1)
 
-	return o.At(validx, validy)
+	return o.LandAt(validx, validy)
 }
+
+type Area struct {
+	Sea    bool
+	River  bool
+	height int
+	o      *testOutline
+}
+
+func (a *Area) IsLand() bool               { return !a.IsWater() }
+func (a *Area) IsWater() bool              { return a.Sea || a.River }
+func (a *Area) IsMolten() bool             { return false }
+func (a *Area) IsRoad() bool               { return false }
+func (a *Area) IsNull() bool               { return false }
+func (a *Area) Height() int                { return a.height }
+func (a *Area) Rainfall() int              { return 150 }
+func (a *Area) Temperature() int           { return a.o.DefaultTemp }
+func (a *Area) Tiles() *autotile.LandTiles { return land }
+func (a *Area) Tags() []string             { return nil }
