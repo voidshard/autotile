@@ -19,6 +19,9 @@ type Event struct {
 
 	// if an object is placed
 	ObjectID string
+
+	// Collision
+	collisionType collisionType
 }
 
 //
@@ -30,6 +33,10 @@ func newEvent(x, y, z int, src string, props *tile.Properties) *Event {
 		Src:        src,
 		Properties: props,
 	}
+}
+
+func newColEvent(x, y, z int, typ collisionType) *Event {
+	return &Event{X: x, Y: y, Z: z, collisionType: typ}
 }
 
 func newObjEvent(x, y, z int, id string) *Event {

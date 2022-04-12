@@ -15,71 +15,155 @@ var cfg = &autotile.Config{
 }
 
 var land = &autotile.LandTiles{
-	Grass: &autotile.BasicLand{
-		Full:       []string{"grass.full.01.png"},
-		Transition: []string{"grass.trans.01.png"},
+	Grass: &autotile.Tileset{
+		Full: []string{"grass.full.01.0.0.0.png"},
 	},
-	Sand: &autotile.BasicLand{
-		Full:       []string{"sand.full.01.png"},
-		Transition: []string{"sand.trans.01.png"},
+	Dirt: &autotile.Tileset{
+		Full: []string{"dirt.full.01.0.0.0.png"},
 	},
-	Dirt: &autotile.BasicLand{
-		Full:       []string{"dirt.full.01.png"},
-		Transition: []string{"dirt.trans.01.png"},
+	Sand: &autotile.Tileset{
+		Full: []string{"sand.full.01.0.0.0.png"},
 	},
-	Snow: &autotile.BasicLand{
-		Full:       []string{"snow.full.01.png"},
-		Transition: []string{"snow.trans.01.png"},
+	Water: &autotile.Tileset{
+		Full:                  []string{"river.full.01.0.0.0.png"},
+		NorthHalf:             []string{"river.n.01.0.0.0.png"},
+		EastHalf:              []string{"river.e.01.0.0.0.png"},
+		SouthHalf:             []string{"river.s.01.0.0.0.png"},
+		WestHalf:              []string{"river.w.01.0.0.0.png"},
+		QuarterNorthEast:      []string{"river.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast:      []string{"river.1q_se.01.0.0.0.png"},
+		QuarterSouthWest:      []string{"river.1q_sw.01.0.0.0.png"},
+		QuarterNorthWest:      []string{"river.1q_nw.01.0.0.0.png"},
+		ThreeQuarterNorthEast: []string{"river.3q_ne.01.0.0.0.png"},
+		ThreeQuarterSouthEast: []string{"river.3q_se.01.0.0.0.png"},
+		ThreeQuarterSouthWest: []string{"river.3q_sw.01.0.0.0.png"},
+		ThreeQuarterNorthWest: []string{"river.3q_nw.01.0.0.0.png"},
 	},
-	Rock: &autotile.BasicLand{
-		Full:       []string{"rock.full.01.png"},
-		Transition: []string{"rock.trans.01.png"},
+	Bridge: &autotile.Tileset{
+		Full:                  []string{"bridge.plank.full.01.0.0.0.png"},
+		NorthHalf:             []string{"bridge.plank.n.01.0.0.0.png"},
+		EastHalf:              []string{"bridge.plank.e.01.0.0.0.png"},
+		SouthHalf:             []string{"bridge.plank.s.01.0.0.0.png"},
+		WestHalf:              []string{"bridge.plank.w.01.0.0.0.png"},
+		QuarterNorthEast:      []string{"bridge.plank.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast:      []string{"bridge.plank.1q_se.01.0.0.0.png"},
+		QuarterSouthWest:      []string{"bridge.plank.1q_sw.01.0.0.0.png"},
+		QuarterNorthWest:      []string{"bridge.plank.1q_nw.01.0.0.0.png"},
+		ThreeQuarterNorthEast: []string{"bridge.plank.3q_ne.01.0.0.0.png"},
+		ThreeQuarterNorthWest: []string{"bridge.plank.3q_nw.01.0.0.0.png"},
+		ThreeQuarterSouthEast: []string{"bridge.plank.3q_se.01.0.0.0.png"},
+		ThreeQuarterSouthWest: []string{"bridge.plank.3q_sw.01.0.0.0.png"},
 	},
-	Water: &autotile.ComplexLand{
-		Full:                  []string{"water.full.01.png"},
-		NorthHalf:             []string{"water.n.01.png"},
-		EastHalf:              []string{"water.e.01.png"},
-		SouthHalf:             []string{"water.s.01.png"},
-		WestHalf:              []string{"water.w.01.png"},
-		QuarterNorthEast:      []string{"water.1q_ne.01.png"},
-		QuarterSouthEast:      []string{"water.1q_se.01.png"},
-		QuarterSouthWest:      []string{"water.1q_sw.01.png"},
-		QuarterNorthWest:      []string{"water.1q_nw.01.png"},
-		ThreeQuarterNorthEast: []string{"water.3q_ne.01.png"},
-		ThreeQuarterSouthEast: []string{"water.3q_se.01.png"},
-		ThreeQuarterSouthWest: []string{"water.3q_sw.01.png"},
-		ThreeQuarterNorthWest: []string{"water.3q_nw.01.png"},
+	Cliff: &autotile.Tileset{
+		NorthHalf:             []string{"cliffs.n.01.0.0.0.png"},
+		EastHalf:              []string{"cliffs.e.01.0.0.0.png"},
+		SouthHalf:             []string{"cliffs.s.01.0.0.0.png"},
+		WestHalf:              []string{"cliffs.w.01.0.0.0.png"},
+		QuarterNorthEast:      []string{"cliffs.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast:      []string{"cliffs.1q_se.01.0.0.0.png"},
+		QuarterSouthWest:      []string{"cliffs.1q_sw.01.0.0.0.png"},
+		QuarterNorthWest:      []string{"cliffs.1q_nw.01.0.0.0.png"},
+		ThreeQuarterNorthEast: []string{"cliffs.3q_ne.01.0.0.0.png"},
+		ThreeQuarterNorthWest: []string{"cliffs.3q_nw.01.0.0.0.png"},
+		ThreeQuarterSouthEast: []string{"cliffs.3q_se.01.0.0.0.png"},
+		ThreeQuarterSouthWest: []string{"cliffs.3q_sw.01.0.0.0.png"},
 	},
-	Cliff: &autotile.Cliff{
-		NorthHalf:             []string{"cliff.n.01.png"},
-		EastHalf:              []string{"cliff.e.01.png"},
-		SouthHalf:             []string{"cliff.s.01.png"},
-		WestHalf:              []string{"cliff.w.01.png"},
-		QuarterNorthEast:      []string{"cliff.1q_ne.01.png"},
-		QuarterSouthEast:      []string{"cliff.1q_se.01.png"},
-		QuarterSouthWest:      []string{"cliff.1q_sw.01.png"},
-		QuarterNorthWest:      []string{"cliff.1q_nw.01.png"},
-		NorthHalfBase:         []string{"cliff.n_base.01.png"},
-		QuarterNorthEastBase:  []string{"cliff.1q_ne_base.01.png"},
-		QuarterNorthWestBase:  []string{"cliff.1q_nw_base.01.png"},
-		ThreeQuarterNorthEast: []string{"cliff.3q_ne.01.png"},
-		ThreeQuarterNorthWest: []string{"cliff.3q_nw.01.png"},
+	Road: &autotile.Tileset{
+		Full:                  []string{"dirt.full.01.0.0.0.png"},
+		NorthHalf:             []string{"dirt.n.01.0.0.0.png"},
+		EastHalf:              []string{"dirt.e.01.0.0.0.png"},
+		SouthHalf:             []string{"dirt.s.01.0.0.0.png"},
+		WestHalf:              []string{"dirt.w.01.0.0.0.png"},
+		QuarterNorthEast:      []string{"dirt.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast:      []string{"dirt.1q_se.01.0.0.0.png"},
+		QuarterNorthWest:      []string{"dirt.1q_nw.01.0.0.0.png"},
+		QuarterSouthWest:      []string{"dirt.1q_sw.01.0.0.0.png"},
+		ThreeQuarterNorthEast: []string{"dirt.3q_ne.01.0.0.0.png"},
+		ThreeQuarterNorthWest: []string{"dirt.3q_nw.01.0.0.0.png"},
+		ThreeQuarterSouthEast: []string{"dirt.3q_se.01.0.0.0.png"},
+		ThreeQuarterSouthWest: []string{"dirt.3q_sw.01.0.0.0.png"},
 	},
-	Waterfall: &autotile.Waterfall{
-		NS: &autotile.WaterfallNorthSouth{
-			LeftTop:     []string{"waterfall.ns.01.0.0.0.png"},
-			LeftCentre:  []string{"waterfall.ns.01.0.1.0.png"},
-			LeftBottom:  []string{"waterfall.ns.01.0.2.0.png"},
-			MidTop:      []string{"waterfall.ns.01.1.0.0.png"},
-			MidCentre:   []string{"waterfall.ns.01.1.1.0.png"},
-			MidBottom:   []string{"waterfall.ns.01.1.2.0.png"},
-			RightTop:    []string{"waterfall.ns.01.2.0.0.png"},
-			RightCentre: []string{"waterfall.ns.01.2.1.0.png"},
-			RightBottom: []string{"waterfall.ns.01.2.2.0.png"},
-		},
-		SN: &autotile.WaterfallSouthNorth{
-			MidTop: []string{"waterfall.sn.top.01.0.0.0.png"},
-		},
+	StairsNorthSouth: &autotile.Tileset{
+		Full:             []string{"stairs.ns.full.01.0.0.0.png"},
+		NorthHalf:        []string{"stairs.ns.n.01.0.0.0.png"},
+		EastHalf:         []string{"stairs.ns.e.01.0.0.0.png"},
+		SouthHalf:        []string{"stairs.ns.s.01.0.0.0.png"},
+		WestHalf:         []string{"stairs.ns.w.01.0.0.0.png"},
+		QuarterNorthEast: []string{"stairs.ns.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast: []string{"stairs.ns.1q_se.01.0.0.0.png"},
+		QuarterNorthWest: []string{"stairs.ns.1q_nw.01.0.0.0.png"},
+		QuarterSouthWest: []string{"stairs.ns.1q_sw.01.0.0.0.png"},
+	},
+	StairsWestEast: &autotile.Tileset{
+		Full:             []string{"stairs.we.full.01.0.0.0.png"},
+		NorthHalf:        []string{"stairs.we.n.01.0.0.0.png"},
+		EastHalf:         []string{"stairs.we.e.01.0.0.0.png"},
+		SouthHalf:        []string{"stairs.we.s.01.0.0.0.png"},
+		WestHalf:         []string{"stairs.we.w.01.0.0.0.png"},
+		QuarterNorthEast: []string{"stairs.we.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast: []string{"stairs.we.1q_se.01.0.0.0.png"},
+		QuarterNorthWest: []string{"stairs.we.1q_nw.01.0.0.0.png"},
+		QuarterSouthWest: []string{"stairs.we.1q_sw.01.0.0.0.png"},
+	},
+	StairsSouthNorth: &autotile.Tileset{
+		Full:             []string{"stairs.ns.full.01.0.0.0.png"},
+		NorthHalf:        []string{"stairs.ns.n.01.0.0.0.png"},
+		EastHalf:         []string{"stairs.ns.e.01.0.0.0.png"},
+		SouthHalf:        []string{"stairs.ns.s.01.0.0.0.png"},
+		WestHalf:         []string{"stairs.ns.w.01.0.0.0.png"},
+		QuarterNorthEast: []string{"stairs.ns.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast: []string{"stairs.ns.1q_se.01.0.0.0.png"},
+		QuarterNorthWest: []string{"stairs.ns.1q_nw.01.0.0.0.png"},
+		QuarterSouthWest: []string{"stairs.ns.1q_sw.01.0.0.0.png"},
+	},
+	StairsEastWest: &autotile.Tileset{
+		Full:             []string{"stairs.ew.full.01.0.0.0.png"},
+		NorthHalf:        []string{"stairs.ew.n.01.0.0.0.png"},
+		EastHalf:         []string{"stairs.ew.e.01.0.0.0.png"},
+		SouthHalf:        []string{"stairs.ew.s.01.0.0.0.png"},
+		WestHalf:         []string{"stairs.ew.w.01.0.0.0.png"},
+		QuarterNorthEast: []string{"stairs.ew.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast: []string{"stairs.ew.1q_se.01.0.0.0.png"},
+		QuarterNorthWest: []string{"stairs.ew.1q_nw.01.0.0.0.png"},
+		QuarterSouthWest: []string{"stairs.ew.1q_sw.01.0.0.0.png"},
+	},
+	WaterfallNorthSouth: &autotile.Tileset{
+		Full:             []string{"waterfall.ns.full.01.0.0.0.png"},
+		NorthHalf:        []string{"waterfall.ns.n.01.0.0.0.png"},
+		EastHalf:         []string{"waterfall.ns.e.01.0.0.0.png"},
+		SouthHalf:        []string{"waterfall.ns.s.01.0.0.0.png"},
+		WestHalf:         []string{"waterfall.ns.w.01.0.0.0.png"},
+		QuarterNorthEast: []string{"waterfall.ns.1q_ne.01.0.0.0.png"},
+		QuarterSouthEast: []string{"waterfall.ns.1q_se.01.0.0.0.png"},
+		QuarterNorthWest: []string{"waterfall.ns.1q_nw.01.0.0.0.png"},
+		QuarterSouthWest: []string{"waterfall.ns.1q_sw.01.0.0.0.png"},
+	},
+	WaterfallSouthNorth: &autotile.Tileset{
+		SouthHalf:        []string{"waterfall.sn.s.01.0.0.0.png"},
+		QuarterSouthEast: []string{"waterfall.sn.1q_se.01.0.0.0.png"},
+		QuarterSouthWest: []string{"waterfall.sn.1q_sw.01.0.0.0.png"},
+	},
+	WaterfallEastWest: &autotile.Tileset{
+		QuarterNorthEast: []string{"waterfall.ew.1q_ne.01.0.0.0.png"},
+		QuarterNorthWest: []string{"waterfall.ew.1q_nw.01.0.0.0.png"},
+		QuarterSouthEast: []string{"waterfall.ew.1q_se.01.0.0.0.png"},
+		QuarterSouthWest: []string{"waterfall.ew.1q_sw.01.0.0.0.png"},
+		EastHalf:         []string{"waterfall.ew.e.01.0.0.0.png"},
+		Full:             []string{"waterfall.ew.full.01.0.0.0.png"},
+		NorthHalf:        []string{"waterfall.ew.n.01.0.0.0.png"},
+		SouthHalf:        []string{"waterfall.ew.s.01.0.0.0.png"},
+		WestHalf:         []string{"waterfall.ew.w.01.0.0.0.png"},
+	},
+	WaterfallWestEast: &autotile.Tileset{
+		QuarterNorthEast: []string{"waterfall.we.1q_ne.01.0.0.0.png"},
+		QuarterNorthWest: []string{"waterfall.we.1q_nw.01.0.0.0.png"},
+		QuarterSouthEast: []string{"waterfall.we.1q_se.01.0.0.0.png"},
+		QuarterSouthWest: []string{"waterfall.we.1q_sw.01.0.0.0.png"},
+		EastHalf:         []string{"waterfall.we.e.01.0.0.0.png"},
+		Full:             []string{"waterfall.we.full.01.0.0.0.png"},
+		NorthHalf:        []string{"waterfall.we.n.01.0.0.0.png"},
+		SouthHalf:        []string{"waterfall.we.s.01.0.0.0.png"},
+		WestHalf:         []string{"waterfall.we.w.01.0.0.0.png"},
 	},
 }
 
@@ -154,6 +238,7 @@ func (o *testOutline) LandAt(inx, iny int) autotile.LandData {
 type Area struct {
 	Sea    bool
 	River  bool
+	Road   bool
 	height int
 	o      *testOutline
 }
@@ -161,7 +246,7 @@ type Area struct {
 func (a *Area) IsLand() bool               { return !a.IsWater() }
 func (a *Area) IsWater() bool              { return a.Sea || a.River }
 func (a *Area) IsMolten() bool             { return false }
-func (a *Area) IsRoad() bool               { return false }
+func (a *Area) IsRoad() bool               { return a.Road }
 func (a *Area) IsNull() bool               { return false }
 func (a *Area) Height() int                { return a.height }
 func (a *Area) Rainfall() int              { return 150 }

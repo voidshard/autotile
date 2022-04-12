@@ -99,6 +99,8 @@ func includes(a []Heading, b ...Heading) bool {
 
 // nearby is a set of areas near (adjacent to) a given tile
 type nearby struct {
+	Centre *area
+
 	North     *area
 	NorthEast *area
 	East      *area
@@ -123,20 +125,10 @@ func (n *nearby) all() []*area {
 	}
 }
 
-// Lower returns tiles nearby lower than the given value (in height)
-func (n *nearby) Lower(h int) []*area {
-	land := []*area{}
-	for _, t := range n.all() {
-		if t.Data.Height() < h {
-			land = append(land, t)
-		}
-	}
-	return land
-}
-
 // cardinals returns information on surrounding tiles
 func cardinals(o Outline, tx, ty int) *nearby {
 	return &nearby{
+		newArea(o, tx, ty),
 		newArea(o, tx, ty-1).setHeading(North),
 		newArea(o, tx+1, ty-1).setHeading(NorthEast),
 		newArea(o, tx+1, ty).setHeading(East),

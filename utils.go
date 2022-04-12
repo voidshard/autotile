@@ -22,25 +22,30 @@ func one(rng *rand.Rand, items []string) string {
 	return items[rng.Intn(len(items))]
 }
 
-// firstFull chooses one 'Full' tile from the first non nil BasicLand
-func firstFull(rng *rand.Rand, lnd ...*BasicLand) string {
+//
+func firstTransition(rng *rand.Rand, lnd ...*Tileset) string {
 	for _, l := range lnd {
 		if l == nil {
 			continue
 		}
-		return one(rng, l.Full)
-	}
-
-	return ""
-}
-
-// firstTransition chooses one 'Transition' tile from the first non nil BasicLand
-func firstTransition(rng *rand.Rand, lnd ...*BasicLand) string {
-	for _, l := range lnd {
-		if l == nil {
+		if len(l.Transition) == 0 {
 			continue
 		}
 		return one(rng, l.Transition)
+	}
+	return ""
+}
+
+// firstFull chooses one 'Full' tile from the first non nil Tileset
+func firstFull(rng *rand.Rand, lnd ...*Tileset) string {
+	for _, l := range lnd {
+		if l == nil {
+			continue
+		}
+		if len(l.Full) == 0 {
+			continue
+		}
+		return one(rng, l.Full)
 	}
 	return ""
 }

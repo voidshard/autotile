@@ -1,0 +1,7 @@
+<map orientation="orthogonal" width="1" height="2" tilewidth="16" tileheight="16"><properties></properties><tileset firstgid="1" name="default" tilewidth="0" tileheight="0"><properties></properties><tile id="1"><image source="wildvege.05.0.0.10.png" width="16" height="16"></image><properties><property name="biome" value="temperate" type="string"></property><property name="object" value="edibleplant" type="string"></property></properties></tile><tile id="2"><image source="wildvege.05.0.1.0.png" width="16" height="16"></image><properties><property name="biome" value="temperate" type="string"></property><property name="object" value="edibleplant" type="string"></property></properties></tile></tileset><layer id="1" width="1" height="2" name="0"><properties></properties><data encoding="csv" compression="">
+0,
+3
+</data></layer><layer id="2" width="1" height="2" name="10"><properties></properties><data encoding="csv" compression="">
+2,
+0
+</data></layer></map>

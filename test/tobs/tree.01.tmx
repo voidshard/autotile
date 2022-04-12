@@ -1,0 +1,13 @@
+<map orientation="orthogonal" width="2" height="3" tilewidth="16" tileheight="16"><properties></properties><tileset firstgid="1" name="default" tilewidth="0" tileheight="0"><properties></properties><tile id="1"><image source="tree.01.0.0.20.png" width="16" height="16"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="temperate" type="string"></property><property name="object" value="tree" type="string"></property></properties></tile><tile id="2"><image source="tree.01.1.0.20.png" width="16" height="16"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="temperate" type="string"></property><property name="object" value="tree" type="string"></property></properties></tile><tile id="3"><image source="tree.01.0.1.10.png" width="16" height="16"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="temperate" type="string"></property><property name="object" value="tree" type="string"></property></properties></tile><tile id="4"><image source="tree.01.1.1.10.png" width="16" height="16"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="temperate" type="string"></property><property name="object" value="tree" type="string"></property></properties></tile><tile id="5"><image source="tree.01.0.2.0.png" width="16" height="16"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="temperate" type="string"></property><property name="object" value="tree" type="string"></property></properties></tile><tile id="6"><image source="tree.01.1.2.0.png" width="16" height="16"></image><properties><property name="wall" value="true" type="bool"></property><property name="biome" value="temperate" type="string"></property><property name="object" value="tree" type="string"></property></properties></tile></tileset><layer id="1" width="2" height="3" name="0"><properties></properties><data encoding="csv" compression="">
+0,0,
+0,0,
+6,7
+</data></layer><layer id="2" width="2" height="3" name="10"><properties></properties><data encoding="csv" compression="">
+0,0,
+4,5,
+0,0
+</data></layer><layer id="3" width="2" height="3" name="20"><properties></properties><data encoding="csv" compression="">
+2,3,
+0,0,
+0,0
+</data></layer></map>

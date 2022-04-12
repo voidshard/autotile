@@ -212,7 +212,7 @@ func (o *Bin) Choose(t tile.Tileable, x, y, z int) (string, *tile.Map, error) {
 
 			// check that the base (bottom layer) of object sits on tiles
 			// with matching tags.
-			objheight := baseHeight(obj)
+			objheight := BaseHeight(obj)
 			suitable := true
 			for ty := y + obj.Height - objheight; ty < y+obj.Height; ty++ {
 				for tx := x; tx < x+obj.Width; tx++ {
@@ -406,7 +406,7 @@ func (o *Bin) Load(group string, cfg *BinGroupConfig) error {
 	return final
 }
 
-// baseHeight returns the height in tiles of the lowest z-layer
+// BaseHeight returns the height in tiles of the lowest z-layer
 // (from the bottom) in the given tile map (tob).
 //
 // so assuming a 3x5 map whose bottom most layer yields
@@ -418,7 +418,7 @@ func (o *Bin) Load(group string, cfg *BinGroupConfig) error {
 // where . is nil, x is a non-nil tile, we'd be hoping for `3`
 // since on the second column an x reaches the 3rd row, counting
 // upwards from the bottom.
-func baseHeight(m *tile.Map) int {
+func BaseHeight(m *tile.Map) int {
 	// determine lowest layer
 	layers := m.ZLevels()
 	if layers == nil || len(layers) == 0 {
@@ -430,7 +430,8 @@ func baseHeight(m *tile.Map) int {
 	// non nil tile
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
-			if m.At(x, y, first) == nil {
+			src, _ := m.At(x, y, first)
+			if src == "" {
 				continue
 			}
 

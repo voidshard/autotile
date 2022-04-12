@@ -78,8 +78,8 @@ func main() {
 
 	// first, we need a map (tile.Tileable) to actually write to
 	tmap := tile.New(&tile.Config{
-		TileWidth:  32,
-		TileHeight: 32,
+		TileWidth:  16,
+		TileHeight: 16,
 		MapWidth:   uint(beach.max * beach.scale),
 		MapHeight:  uint(beach.max * beach.scale),
 	})

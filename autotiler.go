@@ -1,6 +1,7 @@
 package autotile
 
 import (
+	"fmt"
 	"image"
 	"math/rand"
 
@@ -64,11 +65,27 @@ func (a *Autotiler) Events() <-chan *Event {
 // - water, lava
 // - cliffs, waterfalls
 func (a *Autotiler) SetLand(o Outline, region image.Rectangle, t tile.Tileable) error {
+	// for some objects that involve intersections of tiles we mark collision
+	// squares and come back to them later
+	collisions := newCollisionHandler()
+
 	enact := func(events []*Event) error {
 		if events == nil {
-			return nil
+			return nil // nothing to do
 		}
+
 		for _, e := range events {
+			if e.collisionType != "" {
+				collisions.append(e)
+				continue // collisions are internal information
+			}
+			if e.Src == "" && e.ObjectID == "" {
+				continue // nothing is set
+			}
+			if e.X < region.Min.X || e.X >= region.Max.X || e.Y < region.Min.Y && e.Y >= region.Max.Y {
+				continue // outside of the area
+			}
+
 			err := t.Set(e.X, e.Y, e.Z, e.Src)
 			if err != nil {
 				return err
@@ -77,7 +94,8 @@ func (a *Autotiler) SetLand(o Outline, region image.Rectangle, t tile.Tileable) 
 			if err != nil {
 				return err
 			}
-			a.emitEvent(e)
+
+			a.emitEvent(e) // now that we've done it, push to listener (if any)
 		}
 		return nil
 	}
@@ -105,7 +123,101 @@ func (a *Autotiler) SetLand(o Outline, region image.Rectangle, t tile.Tileable) 
 		}
 	}
 
+	for _, col := range collisions.All() {
+		evts = a.handleCollision(o, rng, col)
+		err = enact(evts)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (a *Autotiler) handleCollision(o Outline, rng *rand.Rand, col *collision) []*Event {
+	e := col.Events()[0]
+	me := newArea(o, e.X, e.Y)
+	tiles := me.Data.Tiles()
+	r := col.Max()
+
+	evts := []*Event{}
+
+	fmt.Println("DETECTED", col.typ, r)
+
+	switch col.typ {
+	case collisionStairsNS:
+		if tiles.StairsNorthSouth == nil {
+			return nil
+		}
+		evts = tiles.StairsNorthSouth.fillRect(
+			rng,
+			image.Rect(r.Min.X, r.Min.Y-1, r.Max.X, r.Max.Y+1),
+			a.cfg.ZOffsetWaterfall,
+			propertiesRoad,
+		)
+	case collisionStairsSN:
+		if tiles.StairsSouthNorth == nil {
+			return nil
+		}
+		evts = tiles.StairsSouthNorth.fillRect(rng, r, a.cfg.ZOffsetWaterfall, propertiesRoad)
+	case collisionStairsEW:
+		if tiles.StairsEastWest == nil {
+			return nil
+		}
+		evts = tiles.StairsEastWest.fillRect(
+			rng,
+			image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y-1),
+			a.cfg.ZOffsetWaterfall,
+			propertiesRoad,
+		)
+	case collisionStairsWE:
+		if tiles.StairsWestEast == nil {
+			return nil
+		}
+		evts = tiles.StairsWestEast.fillRect(
+			rng,
+			image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y-1),
+			a.cfg.ZOffsetWaterfall,
+			propertiesRoad,
+		)
+	case collisionWaterfallNS:
+		if tiles.WaterfallNorthSouth == nil {
+			return nil
+		}
+		evts = tiles.WaterfallNorthSouth.fillRect(rng, r, a.cfg.ZOffsetWaterfall, propertiesWFall)
+	case collisionWaterfallSN:
+		if tiles.WaterfallSouthNorth == nil {
+			return nil
+		}
+		evts = tiles.WaterfallSouthNorth.fillRect(
+			rng,
+			image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y+1),
+			a.cfg.ZOffsetWaterfall,
+			propertiesWFall,
+		)
+	case collisionWaterfallEW:
+		if tiles.WaterfallEastWest == nil {
+			return nil
+		}
+		evts = tiles.WaterfallEastWest.fillRect(
+			rng,
+			image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y),
+			a.cfg.ZOffsetWaterfall,
+			propertiesWFall,
+		)
+	case collisionWaterfallWE:
+		if tiles.WaterfallWestEast == nil {
+			return nil
+		}
+		evts = tiles.WaterfallWestEast.fillRect(
+			rng,
+			image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y),
+			a.cfg.ZOffsetWaterfall,
+			propertiesWFall,
+		)
+	}
+
+	return evts
 }
 
 func (a *Autotiler) placeNull(o Outline, rng *rand.Rand, me *area, tagsonly bool) ([]*Event, string, error) {
@@ -124,7 +236,7 @@ func (a *Autotiler) placeNull(o Outline, rng *rand.Rand, me *area, tagsonly bool
 	return []*Event{newEvent(me.X, me.Y, a.cfg.ZOffsetLand, tiles.Null, propertiesNull)}, Null, nil
 }
 
-func (a *Autotiler) placeLand(o Outline, rng *rand.Rand, me *area, _ bool) ([]*Event, string, error) {
+func (a *Autotiler) placeLand(o Outline, rng *rand.Rand, me *area, tagsonly bool) ([]*Event, string, error) {
 	tiles := me.Data.Tiles()
 	if tiles == nil {
 		return nil, "", nil
@@ -137,7 +249,7 @@ func (a *Autotiler) placeLand(o Outline, rng *rand.Rand, me *area, _ bool) ([]*E
 	beach := a.cfg.BeachWidth
 	nearWtr := false
 	nearWtrPlus := false
-	if beach > 0 {
+	if beach > 0 && me.Data.Height() < a.cfg.CliffLevel {
 		nearWtr = len(withinRadius(o, me.X, me.Y, beach, func(in *area) bool { return in.Data.IsWater() })) > 0
 		nearWtrPlus = len(withinRadius(o, me.X, me.Y, beach+1, func(in *area) bool { return in.Data.IsWater() })) > 0
 	}
@@ -146,28 +258,33 @@ func (a *Autotiler) placeLand(o Outline, rng *rand.Rand, me *area, _ bool) ([]*E
 	if me.Data.Temperature() <= a.cfg.SnowLevel-tsn {
 		src = firstFull(rng, tiles.Snow, tiles.Dirt, tiles.Rock)
 		tag = Snow
-	} else if me.Data.Temperature() <= a.cfg.SnowLevel {
-		srcT = firstTransition(rng, tiles.Snow, tiles.Dirt, tiles.Rock)
-	} else if nearWtrPlus && !nearWtr {
-		srcT = firstTransition(rng, tiles.Sand, tiles.Rock)
 	} else if nearWtr {
 		src = firstFull(rng, tiles.Sand, tiles.Rock)
 		tag = Sand
-	} else if me.Data.Height() >= a.cfg.MountainLevel+5 {
+	} else if me.Data.Height() >= a.cfg.MountainLevel+tsn {
 		src = firstFull(rng, tiles.Rock, tiles.Dirt)
 		tag = Rock
-	} else if me.Data.Height() >= a.cfg.MountainLevel {
-		srcT = firstTransition(rng, tiles.Rock, tiles.Dirt)
 	} else if me.Data.Temperature() <= a.cfg.VegetationMinTemp-tsn {
 		src = firstFull(rng, tiles.Dirt, tiles.Rock)
 		tag = Dirt
-	} else if me.Data.Temperature() <= a.cfg.VegetationMinTemp {
-		srcT = firstTransition(rng, tiles.Dirt, tiles.Rock)
 	} else if me.Data.Temperature() >= a.cfg.VegetationMaxTemp+tsn { // desert
 		src = firstFull(rng, tiles.Sand, tiles.Rock, tiles.Dirt)
 		tag = Sand
+	}
+	if tagsonly {
+		return nil, tag, nil
+	}
+
+	if me.Data.Temperature() <= a.cfg.SnowLevel {
+		srcT = firstTransition(rng, tiles.Snow, tiles.Dirt, tiles.Rock)
+	} else if nearWtrPlus && !nearWtr {
+		srcT = firstTransition(rng, tiles.Sand, tiles.Dirt)
 	} else if me.Data.Temperature() >= a.cfg.VegetationMaxTemp {
 		srcT = firstTransition(rng, tiles.Sand, tiles.Rock, tiles.Dirt)
+	} else if me.Data.Temperature() <= a.cfg.VegetationMinTemp {
+		srcT = firstTransition(rng, tiles.Dirt, tiles.Rock)
+	} else if me.Data.Height() >= a.cfg.MountainLevel {
+		srcT = firstTransition(rng, tiles.Rock, tiles.Dirt)
 	}
 
 	ret := []*Event{newEvent(me.X, me.Y, a.cfg.ZOffsetLand, src, propertiesLand)}
@@ -192,28 +309,32 @@ func (a *Autotiler) placeWater(o Outline, rng *rand.Rand, me *area, tagonly bool
 	}
 
 	crd := cardinals(o, me.X, me.Y)
-	in := []*area{}
-	out := []*area{}
-	for _, t := range crd.all() {
-		if t.Data.IsWater() {
-			in = append(in, t)
-		} else {
-			out = append(out, t)
-		}
+	src := tiles.Water.choosePiece(rng, crd, func(a *area) bool { return a.Data.IsWater() })
+
+	evts := []*Event{
+		newEvent(me.X, me.Y, a.cfg.ZOffsetWater, src, propertiesWater),
 	}
 
-	src := tiles.Water.choosePiece(rng, in, out)
-	return []*Event{
-		newEvent(me.X, me.Y, a.cfg.ZOffsetWater, src, propertiesWater),
-	}, Water, nil
+	if tiles.Bridge == nil || !me.Data.IsRoad() {
+		return evts, Water, nil
+	}
+
+	bsrc := tiles.Bridge.choosePiece(rng, crd, func(a *area) bool { return a.Data.IsRoad() && a.Data.IsWater() })
+	evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetRoad, bsrc, propertiesRoad))
+
+	return evts, Road, nil
 }
 
 func (a *Autotiler) placeRoad(o Outline, rng *rand.Rand, me *area, tagonly bool) ([]*Event, string, error) {
-	if !me.Data.IsLand() || !me.Data.IsRoad() {
+	if !me.Data.IsRoad() {
 		return nil, "", nil
 	}
 	tiles := me.Data.Tiles()
-	if tiles.Road == nil {
+	ts := tiles.Road
+	if me.Data.IsWater() {
+		ts = tiles.Bridge
+	}
+	if ts == nil {
 		return nil, "", nil
 	}
 	if tagonly {
@@ -221,17 +342,8 @@ func (a *Autotiler) placeRoad(o Outline, rng *rand.Rand, me *area, tagonly bool)
 	}
 
 	crd := cardinals(o, me.X, me.Y)
-	in := []*area{}
-	out := []*area{}
-	for _, t := range crd.all() {
-		if t.Data.IsRoad() && t.Data.IsLand() {
-			in = append(in, t)
-		} else {
-			out = append(out, t)
-		}
-	}
+	src := ts.choosePiece(rng, crd, func(a *area) bool { return a.Data.IsRoad() })
 
-	src := tiles.Road.choosePiece(rng, in, out)
 	return []*Event{
 		newEvent(me.X, me.Y, a.cfg.ZOffsetRoad, src, propertiesRoad),
 	}, Road, nil
@@ -249,18 +361,9 @@ func (a *Autotiler) placeMolten(o Outline, rng *rand.Rand, me *area, tagonly boo
 		return nil, Lava, nil
 	}
 
-	molten := []*area{}
-	notmolten := []*area{}
 	crd := cardinals(o, me.X, me.Y)
-	for _, t := range crd.all() {
-		if t.Data.IsMolten() && !t.Data.IsWater() {
-			molten = append(molten, t)
-		} else {
-			notmolten = append(notmolten, t)
-		}
-	}
 
-	src := tiles.Lava.choosePiece(rng, molten, notmolten)
+	src := tiles.Lava.choosePiece(rng, crd, func(a *area) bool { return a.Data.IsMolten() && !a.Data.IsWater() })
 	return []*Event{
 		newEvent(me.X, me.Y, a.cfg.ZOffsetWater, src, propertiesLava),
 	}, Lava, nil
@@ -268,7 +371,8 @@ func (a *Autotiler) placeMolten(o Outline, rng *rand.Rand, me *area, tagonly boo
 }
 
 func (a *Autotiler) placeCliffs(o Outline, rng *rand.Rand, me *area, tagonly bool) ([]*Event, string, error) {
-	if me.Data.Height() < a.cfg.CliffLevel {
+	h := me.Data.Height()
+	if h < a.cfg.CliffLevel {
 		return nil, "", nil
 	}
 	tiles := me.Data.Tiles()
@@ -277,114 +381,61 @@ func (a *Autotiler) placeCliffs(o Outline, rng *rand.Rand, me *area, tagonly boo
 	}
 
 	crd := cardinals(o, me.X, me.Y)
-
-	lowland := crd.Lower(me.Data.Height())
-	if len(lowland) == 0 {
-		belowTags, err := a.TagsAt(o, me.X, me.Y+1)
-		if err != nil {
-			return nil, "", err
-		}
-		if contains(CliffFace, belowTags) {
-			return nil, CliffEdge, nil
-		}
-
+	src := tiles.Cliff.choosePiece(rng, crd, func(a *area) bool { return a.Data.Height() >= h })
+	if src == "" {
 		return nil, "", nil
 	}
-	if tagonly {
-		return nil, CliffFace, nil
+	evts := []*Event{
+		newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, src, propertiesCliff),
 	}
-
-	c := tiles.Cliff
-	evts := []*Event{}
-	low := headings(lowland)
-	if len(lowland) == 1 {
-		switch lowland[0].heading {
-		case SouthEast:
-			evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetCliff, one(rng, c.ThreeQuarterNorthWest), propertiesCliff))
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.WestHalf), propertiesCliff))
-		case SouthWest:
-			evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetCliff, one(rng, c.ThreeQuarterNorthEast), propertiesCliff))
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.EastHalf), propertiesCliff))
-		}
-	} else if len(lowland) >= 2 || len(lowland) <= 5 {
-		if includes(low, cornerNE...) {
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.QuarterSouthWest), propertiesCliff))
-		} else if includes(low, cornerNW...) {
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.QuarterSouthEast), propertiesCliff))
-		} else if includes(low, cornerSE...) {
-			evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetCliff, one(rng, c.QuarterNorthWest), propertiesCliff))
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.QuarterNorthWestBase), propertiesCliff))
-		} else if includes(low, cornerSW...) {
-			evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetCliff, one(rng, c.QuarterNorthEast), propertiesCliff))
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.QuarterNorthEastBase), propertiesCliff))
-		} else if includes(low, North) {
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.SouthHalf), propertiesCliff))
-		} else if includes(low, East) {
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.WestHalf), propertiesCliff))
-		} else if includes(low, South) {
-			evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetCliff, one(rng, c.NorthHalf), propertiesCliff))
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.NorthHalfBase), propertiesCliff))
-		} else if includes(low, West) {
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetCliff, one(rng, c.EastHalf), propertiesCliff))
-		}
-	}
-
-	// now we deal with waterfalls ..
-	if !me.Data.IsWater() || tiles.Waterfall == nil || len(lowland) <= 1 {
-		return evts, CliffFace, nil
-	}
-	if includes(low, cornerNE...) || includes(low, cornerNW...) || includes(low, cornerSE...) || includes(low, cornerSW...) {
-		// we don't place waterfalls on cliff corners
-		return evts, CliffFace, nil
-	}
-	watertiles := []*area{}
-	for _, t := range crd.all() {
-		if t.Data.IsWater() {
-			watertiles = append(watertiles, t)
-		}
-	}
-	if len(watertiles) < 5 {
+	if !(me.Data.IsRoad() || me.Data.IsWater()) {
 		return evts, CliffFace, nil
 	}
 
-	if includes(low, North) { // waterfall flowing north
-		if tiles.Waterfall.SN == nil {
-			return evts, CliffFace, nil
-		}
-		if len(watertiles) < 8 {
-			return evts, CliffFace, nil
-		}
-		// we can only see the top of the waterfall falling out of view
-		evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.SN.MidTop), propertiesWFall))
-	} else if includes(low, South) { // waterfall flowing south
-		if tiles.Waterfall.NS == nil {
-			return evts, CliffFace, nil
+	n := crd.North.Data.Height()
+	s := crd.South.Data.Height()
+	e := crd.East.Data.Height()
+	w := crd.West.Data.Height()
+
+	if me.Data.IsWater() {
+		var wfalltype collisionType
+
+		wrNS := crd.North.Data.IsWater() && crd.South.Data.IsWater()
+		wrWE := crd.East.Data.IsWater() && crd.West.Data.IsWater()
+
+		switch {
+		case wrNS && n != s && n >= h && s <= h:
+			wfalltype = collisionWaterfallNS
+		case wrNS && n != s && n <= h && s >= h:
+			wfalltype = collisionWaterfallSN
+		case wrWE && w != e && e >= h && w <= h:
+			wfalltype = collisionWaterfallEW
+		case wrWE && w != e && e <= h && w >= h:
+			wfalltype = collisionWaterfallWE
 		}
 
-		// check the tile above (Y-1) of this tile
-		above := newArea(o, me.X, me.Y-1)
-		abovelowland := cardinals(o, me.X, me.Y-1).Lower(above.Data.Height())
-		istop := len(abovelowland) < 2
+		if wfalltype != "" {
+			evts = append(evts, newColEvent(me.X, me.Y, a.cfg.ZOffsetCliff, wfalltype))
+		}
+	} else if me.Data.IsRoad() {
+		var stype collisionType
 
-		wet := headings(watertiles)
-		if len(watertiles) >= 8 { // middle
-			if istop {
-				evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.MidTop), propertiesWFall))
-			}
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.MidCentre), propertiesWFall))
-			evts = append(evts, newEvent(me.X, me.Y+1, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.MidBottom), propertiesWFall))
-		} else if includes(wet, cornerNE...) && includes(wet, cornerSE...) { // left
-			if istop {
-				evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.LeftTop), propertiesWFall))
-			}
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.LeftCentre), propertiesWFall))
-			evts = append(evts, newEvent(me.X, me.Y+1, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.LeftBottom), propertiesWFall))
-		} else if includes(wet, cornerNW...) && includes(wet, cornerSW...) { // right
-			if istop {
-				evts = append(evts, newEvent(me.X, me.Y-1, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.RightTop), propertiesWFall))
-			}
-			evts = append(evts, newEvent(me.X, me.Y, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.RightCentre), propertiesWFall))
-			evts = append(evts, newEvent(me.X, me.Y+1, a.cfg.ZOffsetWaterfall, one(rng, tiles.Waterfall.NS.RightBottom), propertiesWFall))
+		rdNS := crd.North.Data.IsRoad() && crd.South.Data.IsRoad()
+		rdEW := crd.West.Data.IsRoad() && crd.East.Data.IsRoad()
+
+		switch {
+		case rdNS && n != s && n >= h && s <= h:
+			stype = collisionStairsNS
+		case rdNS && n != s && n <= h && s >= h:
+			stype = collisionStairsSN
+		case rdEW && e != w && e >= h && w <= h:
+			stype = collisionStairsEW
+		case rdEW && e != w && e <= h && w >= h:
+			stype = collisionStairsWE
+		}
+
+		if stype != "" {
+			evts = append(evts, newColEvent(me.X, me.Y, a.cfg.ZOffsetCliff, stype))
 		}
 	}
 
