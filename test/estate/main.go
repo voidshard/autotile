@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 
 	"github.com/voidshard/autotile"
 	"github.com/voidshard/autotile/pkg/estate"
@@ -51,6 +52,8 @@ func main() {
 			EmptyPercentage: 0.5,
 			// fill with house & tree(s)
 			Objects: []*estate.Object{house, tree},
+			// add explicitly sized regions of empty space
+			Empty: []image.Point{image.Pt(3, 5)},
 			// leave empty tile on left, right, bottom (of all non-empty space)
 			PadLeft:   1,
 			PadRight:  1,

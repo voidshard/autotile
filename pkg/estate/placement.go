@@ -222,6 +222,20 @@ func newPlacements(s *Set, ldr autotile.Loader, rng *rand.Rand) (placements, err
 		}
 	}
 
+	// add our explicitly sized empty space(s)
+	if s.Empty != nil {
+		for _, in := range s.Empty {
+			if in.X <= 0 || in.Y <= 0 {
+				continue
+			}
+			me = append(me, &placement{
+				parentSet: s,
+				ptype:     space,
+				packSize:  &in,
+			})
+		}
+	}
+
 	// run through our child sets
 	if s.Sets != nil {
 		for _, cs := range s.Sets {

@@ -1,6 +1,8 @@
 package estate
 
 import (
+	"image"
+
 	"github.com/voidshard/tile"
 
 	"github.com/voidshard/autotile"
@@ -23,6 +25,9 @@ const (
 type Set struct {
 	// Objects (tobs) that will be placed
 	Objects []*Object
+
+	// Explicitly add empty areas of the given width,height (point x,y).
+	Empty []image.Point
 
 	// Pad left side of objects with empty tiles
 	PadLeft int
@@ -55,6 +60,8 @@ type Set struct {
 	// Sets that this set contains
 	Sets []*Set
 
-	// rough % of tiles we'll add just to have empty space
+	// rough % of tiles we'll add just to have empty space.
+	// We add regions of empty space based on the size of given
+	// objects, forming a rough ratio of space amidst our items.
 	EmptyPercentage float64
 }
